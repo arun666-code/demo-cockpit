@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo Cockpit Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=Hind:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: control bar, walkthrough strip, four actors side by side drawn as their devices, ruled gate register below. Left aligned. */
+  --ground:#E7ECF2; --panel:#FFFFFF; --screen:#F6F8FB; --ink:#14213D; --ink-soft:#56617A; --line:#C7D0DC;
+  --accent:#1D4ED8; --accent-bg:#E1E9FE; --on-accent:#FFFFFF;
+  --signal:#F2B705; --signal-bg:#FFF2BF; --signal-ink:#5C4500;
+  --ok:#126C32; --ok-bg:#DDF3E4; --stop:#C0262D; --stop-bg:#FBE1E1;
+  --bezel:#1B2333; --rule:#DCE3EC;
+  --font-display:'Barlow Condensed','Arial Narrow','Roboto Condensed',sans-serif;
+  --font-body:'Barlow','Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --font-hi:'Hind','Noto Sans Devanagari','Nirmala UI','Mangal',sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F141D; --panel:#19202D; --screen:#141A25; --ink:#E8ECF4; --ink-soft:#9BA7BE; --line:#33405A;
+    --accent:#86A8FF; --accent-bg:#22305A; --on-accent:#0F141D;
+    --signal:#F5C431; --signal-bg:#3D3210; --signal-ink:#F8DC7A;
+    --ok:#56C783; --ok-bg:#173524; --stop:#F1766F; --stop-bg:#45201F;
+    --bezel:#05080D; --rule:#2A3448; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F141D; --panel:#19202D; --screen:#141A25; --ink:#E8ECF4; --ink-soft:#9BA7BE; --line:#33405A;
+  --accent:#86A8FF; --accent-bg:#22305A; --on-accent:#0F141D;
+  --signal:#F5C431; --signal-bg:#3D3210; --signal-ink:#F8DC7A;
+  --ok:#56C783; --ok-bg:#173524; --stop:#F1766F; --stop-bg:#45201F;
+  --bezel:#05080D; --rule:#2A3448; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:15px/1.4 var(--font-body);-webkit-text-size-adjust:100%}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3,p,ul,ol{margin:0}
+ul,ol{padding:0;list-style:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* control bar */
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding:10px 20px;background:var(--panel)}
+.brand{display:flex;flex-direction:column;line-height:1.1;font-weight:400;font-size:inherit}
+.brand b{font:700 26px/1 var(--font-display);letter-spacing:.01em}
+.brand span{font-size:12px;color:var(--ink-soft)}
+.views{display:flex;gap:4px;flex-wrap:wrap}
+.views button{border:0;background:none;padding:8px 14px;border-radius:6px;font:600 19px/1 var(--font-display);color:var(--ink-soft);border-bottom:3px solid transparent}
+.views button[aria-pressed="true"]{color:var(--ink);border-bottom-color:var(--accent);border-radius:6px 6px 0 0}
+.bar-right{margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.clock{font-variant-numeric:tabular-nums;color:var(--ink-soft);font-size:13px}
+.clock b{color:var(--ink);font:600 20px/1 var(--font-display);margin-left:4px}
+.net{display:flex;align-items:center;gap:10px;border:2px solid var(--line);background:var(--panel);border-radius:999px;padding:5px 6px 5px 14px;font-weight:600}
+.net i{display:block;width:44px;height:24px;border-radius:999px;background:var(--ok);position:relative;transition:background .2s}
+.net i::after{content:"";position:absolute;top:3px;left:23px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s}
+.net[aria-checked="false"]{border-color:var(--signal)}
+.net[aria-checked="false"] i{background:var(--signal)}
+.net[aria-checked="false"] i::after{left:3px}
+.band{height:5px;background:var(--accent)}
+.band.off{height:auto;padding:6px 20px;background:repeating-linear-gradient(-45deg,var(--signal) 0 18px,#1B2333 18px 36px)}
+.band.off span{display:inline-block;background:var(--signal);color:#1B2333;font-weight:600;padding:2px 10px;border-radius:4px}
+
+/* buttons and chips */
+.btn{border:0;border-radius:8px;padding:8px 14px;background:var(--accent);color:var(--on-accent);font-weight:600}
+.btn.ghost{background:none;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
+.btn.ok{background:var(--ok);color:var(--on-accent)}
+.btn.stop{background:var(--stop);color:var(--on-accent)}
+.btn.sm{padding:5px 10px;font-size:14px}
+.btn.wide{width:100%}
+.link{border:0;background:none;color:var(--accent);text-decoration:underline;padding:2px}
+.chip{display:inline-block;border-radius:999px;padding:1px 9px;font-size:13px;font-weight:600;white-space:nowrap}
+.chip.ok{background:var(--ok-bg);color:var(--ok)}
+.chip.stop{background:var(--stop-bg);color:var(--stop)}
+.chip.warn{background:var(--signal-bg);color:var(--signal-ink)}
+.chip.info{background:var(--accent-bg);color:var(--accent)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tiny{font-size:13px;color:var(--ink-soft)}
+.hint{outline:3px solid var(--signal)!important;outline-offset:3px;box-shadow:0 0 0 7px var(--ink);animation:hint 1s ease-in-out 3}
+@keyframes hint{50%{outline-offset:8px}}
+@media (prefers-reduced-motion: reduce){.hint{animation:none}*{transition:none!important}.scene .arm,.over.call .ring,.register .tbl tr.fresh td{animation-duration:.01ms!important;animation-iteration-count:1!important}}
+
+/* walkthrough */
+.guide{display:grid;grid-template-columns:auto 1fr auto;gap:8px 24px;align-items:start;padding:8px 20px;border-bottom:1px solid var(--line)}
+.guide.closed{display:block;padding:6px 20px}
+.g-nav{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.g-nav select{padding:5px 8px;border:1.5px solid var(--line);border-radius:8px;background:var(--panel);max-width:min(100%,360px);font-weight:600}
+.g-shows{font:600 21px/1.2 var(--font-display);text-wrap:balance;max-width:70ch}
+.g-steps{display:flex;flex-wrap:wrap;gap:4px 22px;margin-top:6px;counter-reset:s}
+.g-steps li{counter-increment:s;color:var(--ink-soft);max-width:56ch;padding-left:24px;position:relative}
+.g-steps li::before{content:counter(s);position:absolute;left:0;top:1px;width:18px;height:18px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--line);font-size:11.5px;font-weight:600;display:grid;place-items:center}
+.g-steps li.cur{color:var(--ink);font-weight:500}
+.g-steps li.cur::before{background:var(--signal);color:#1B2333;box-shadow:none}
+.g-steps li.done{text-decoration:line-through;text-decoration-color:var(--line)}
+.g-steps li.done::before{content:"✓";background:var(--ok);color:var(--on-accent);box-shadow:none}
+.g-qs{margin-top:6px;list-style:decimal;padding-left:20px;color:var(--ink);columns:2 320px;column-gap:32px}
+.g-side{display:flex;gap:8px;align-items:center}
+
+/* stage */
+.stage{display:grid;gap:16px;padding:16px 20px 8px;align-items:start}
+.stage.soc{grid-template-columns:290px minmax(300px,1.15fr) minmax(220px,.8fr) minmax(320px,1.25fr)}
+.stage.rst{grid-template-columns:290px minmax(300px,1.1fr) minmax(320px,1.25fr) 290px}
+.actor h2{font:600 20px/1.1 var(--font-display)}
+.actor .who{font-size:13px;color:var(--ink-soft);margin-bottom:8px}
+.dev{height:clamp(340px,calc(100vh - 420px),548px);position:relative;display:flex;flex-direction:column;overflow:hidden;background:var(--screen)}
+.phone{border:10px solid var(--bezel);border-radius:34px;max-width:290px}
+.tablet{border:12px solid var(--bezel);border-radius:20px}
+.window{border:1.5px solid var(--line);border-radius:10px;background:var(--panel)}
+.win-bar{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--ink-soft)}
+.win-bar i{width:9px;height:9px;border-radius:50%;background:var(--line)}
+.status{display:flex;justify-content:space-between;padding:5px 16px 3px;font-size:12px;font-weight:600;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.body{flex:1;overflow-y:auto;padding:10px 12px 12px;display:flex;flex-direction:column;gap:10px}
+.scr-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.scr-h b{font:600 20px/1.1 var(--font-display)}
+.act{display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left;border:1.5px solid var(--line);background:var(--panel);border-radius:10px;padding:11px 12px;font-weight:500}
+.act::after{content:"›";color:var(--ink-soft);font-size:20px;line-height:1}
+.badge{background:var(--accent);color:var(--on-accent);border-radius:999px;padding:0 7px;font-size:12px;margin-left:6px}
+.notes li{padding:7px 0;border-bottom:1px solid var(--rule);font-size:14px}
+.notes time{display:block;font-size:11.5px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.sub{font:600 16px/1.2 var(--font-display);color:var(--ink-soft)}
+.req{border:2px solid var(--signal);background:var(--signal-bg);color:var(--signal-ink);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px}
+.req .tiny{color:inherit}
+.sos{border:0;background:#C0262D;color:#fff;border-radius:999px;padding:10px;font:700 20px/1 var(--font-display);letter-spacing:.06em;width:100%}
+.sos-status{width:100%;border:2px solid #C0262D;border-radius:10px;padding:7px 10px;background:var(--stop-bg);color:var(--stop);font-weight:600;font-size:14px}
+.foot-row{display:flex;flex-wrap:wrap;gap:8px;padding:8px 12px 10px;border-top:1px solid var(--rule);background:var(--screen)}
+.foot-row .btn{flex:1 1 auto}
+.nw{white-space:nowrap}
+.over{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:center;gap:12px;padding:18px;background:var(--screen)}
+.over.call{background:#12301F;color:#fff;text-align:center}
+.over.call .ring{width:64px;height:64px;border-radius:50%;background:#2FA862;margin:0 auto;display:grid;place-items:center;animation:ring 1.2s ease-in-out infinite}
+@keyframes ring{50%{box-shadow:0 0 0 14px rgba(47,168,98,.25)}}
+.keys{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.keys button{border:0;border-radius:12px;padding:10px;background:rgba(255,255,255,.14);color:#fff;font-weight:600}
+.keys .k1{background:#2FA862}
+.keys .k2{background:#B5343A}
+.keys b{display:block;font:700 30px/1 var(--font-display)}
+.over.alarm{background:#C0262D;color:#fff;text-align:center}
+.over.alarm b{font:700 34px/1.05 var(--font-display)}
+.over.dim{background:color-mix(in srgb,var(--bezel) 55%,transparent);justify-content:center}
+.sheet{background:var(--panel);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;border:1px solid var(--line)}
+.field{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--ink-soft)}
+.field input,.field select{padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font-size:15px}
+.qr{width:150px;height:150px;border-radius:8px;display:block;margin:0 auto}
+.code{font:700 30px/1 var(--font-display);letter-spacing:.18em;text-align:center}
+.cert{border:1.5px dashed var(--ok);border-radius:10px;padding:10px;font-size:13.5px;background:var(--ok-bg)}
+.err{color:var(--stop);font-weight:600;font-size:13.5px}
+
+/* guard tablet */
+.guard{font-family:var(--font-body)}
+.guard.hi{font-family:var(--font-hi)}
+.lang{display:inline-flex;border:1.5px solid var(--line);border-radius:999px;overflow:hidden}
+.lang button{border:0;background:none;padding:3px 12px;font-weight:600}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--screen)}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{border:1.5px solid var(--line);background:var(--panel);border-radius:14px;padding:14px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;font-weight:600;font-size:16px}
+.tile svg{width:34px;height:34px;color:var(--accent)}
+.card{border:1.5px solid var(--line);border-radius:10px;padding:9px 10px;background:var(--panel);display:flex;flex-direction:column;gap:6px}
+.result{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;border-radius:14px;padding:16px}
+.result.ok{background:var(--ok-bg);color:var(--ok)}
+.result.stop{background:var(--stop-bg);color:var(--stop)}
+.result b{font:700 30px/1.1 var(--font-display)}
+.guard.hi .result b{font-family:var(--font-hi);font-size:24px}
+.finder{height:92px;border-radius:10px;background:#0E1420;position:relative}
+.finder::after{content:"";position:absolute;inset:16px 34%;border:2px solid #fff;border-radius:6px;opacity:.8}
+.pick{display:flex;justify-content:space-between;gap:8px;align-items:center;width:100%;text-align:left;border:1.5px solid var(--line);background:var(--panel);border-radius:10px;padding:8px 10px}
+.pick small{display:block;color:var(--ink-soft)}
+.list li{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--rule);font-size:13.5px;font-variant-numeric:tabular-nums}
+
+/* gate */
+.gate{border-radius:10px;background:var(--panel);border:1.5px solid var(--line);overflow-y:auto}
+.plate-cam{background:#0E1420;color:#D5DBE6;padding:10px 12px;font-size:12.5px}
+.plate{display:inline-block;margin-top:6px;background:#fff;color:#111;border:2px solid #111;border-radius:5px;padding:2px 10px;font:700 24px/1.1 var(--font-display);letter-spacing:.08em}
+.plate.none{background:none;border-color:#56617A;color:#8C97AD}
+.scene{position:relative;height:clamp(118px,calc(100vh - 600px),210px);flex:none;margin:6px 0;overflow:hidden}
+.scene .road{position:absolute;left:0;right:0;bottom:0;height:42px;background:#5B6474}
+.scene .road::after{content:"";position:absolute;left:0;right:0;top:19px;height:4px;background:repeating-linear-gradient(90deg,#fff 0 22px,transparent 22px 44px);opacity:.8}
+.scene .booth{position:absolute;left:10px;bottom:42px;width:50px;height:70px;background:var(--accent-bg);border:2px solid var(--ink-soft);border-radius:4px 4px 0 0}
+.scene .booth::before{content:"";position:absolute;left:8px;right:8px;top:10px;height:24px;background:var(--panel);border:2px solid var(--ink-soft)}
+.scene .post{position:absolute;left:72px;bottom:42px;width:14px;height:58px;background:var(--ink-soft);border-radius:3px}
+.scene .arm{position:absolute;left:79px;bottom:92px;height:10px;width:calc(100% - 92px);border-radius:3px;border:1px solid #7a1418;background:repeating-linear-gradient(90deg,#C0262D 0 16px,#fff 16px 32px);transform-origin:0 50%}
+.scene.open .arm{animation:armup .8s cubic-bezier(.3,.8,.3,1) both;animation-delay:var(--el,0ms)}
+.scene.shut .arm{animation:armdown .8s cubic-bezier(.3,.8,.3,1) both;animation-delay:var(--el,0ms)}
+@keyframes armup{from{transform:rotate(0)}to{transform:rotate(-68deg)}}
+@keyframes armdown{from{transform:rotate(-68deg)}to{transform:rotate(0)}}
+.gate-state{padding:0 12px;font:700 28px/1 var(--font-display)}
+.gate-state.open{color:var(--ok)}
+.gate-btns{padding:8px 12px 10px;display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
+.gate-btns .btn{flex:1 1 auto;padding:5px 10px;font-size:14px}
+
+/* dashboard */
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.kpi{border-left:3px solid var(--accent);padding:2px 0 2px 9px}
+.kpi b{display:block;font:700 30px/1 var(--font-display);font-variant-numeric:tabular-nums}
+.kpi span{font-size:12.5px;color:var(--ink-soft)}
+.tabs{display:flex;gap:4px;border-bottom:1.5px solid var(--line)}
+.tabs button{border:0;background:none;padding:6px 10px;font-weight:600;color:var(--ink-soft);border-bottom:2.5px solid transparent;margin-bottom:-1.5px}
+.tabs button[aria-pressed="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tbl{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.tbl th{font-weight:600;text-align:left;color:var(--ink-soft);font-size:12.5px;padding:5px 8px 5px 0;border-bottom:1.5px solid var(--line);white-space:nowrap}
+.tbl td{padding:6px 8px 6px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+.incident{border:2px solid var(--stop);border-radius:10px;padding:9px 10px;background:var(--stop-bg)}
+.incident ol{list-style:decimal;padding-left:18px;font-size:13.5px;margin-top:4px}
+.hidden-note{border:1.5px dashed var(--line);border-radius:10px;padding:10px;color:var(--ink-soft);font-size:13.5px}
+
+/* register: the gate's visitor book */
+.register{margin:8px 20px 20px;background:var(--panel);border:1.5px solid var(--line);border-left:6px solid var(--accent);border-radius:4px 10px 10px 4px}
+.reg-h{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 16px;align-items:baseline;padding:10px 14px 6px}
+.reg-h h2{font:600 22px/1 var(--font-display)}
+.reg-scroll{max-height:250px;overflow:auto;padding:0 14px 8px}
+.register .tbl td{border-bottom:1px solid var(--rule);padding-top:7px;padding-bottom:7px}
+.register .tbl tr.fresh td{animation:fresh 2.6s ease-out both;animation-delay:var(--age,0ms)}
+@keyframes fresh{from{background:var(--accent-bg)}to{background:transparent}}
+.t-ok{color:var(--ok);font-weight:600}.t-stop{color:var(--stop);font-weight:600}.t-warn{color:var(--signal-ink);font-weight:600}
+.fp{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;color:var(--ink-soft)}
+
+/* restaurant */
+.menu li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--rule)}
+.menu small{display:block;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.step{display:inline-flex;align-items:center;gap:6px}
+.step button{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--line);background:var(--panel);font-weight:700;line-height:1}
+.step b{min-width:14px;text-align:center;font-variant-numeric:tabular-nums}
+.bill td:last-child,.bill th:last-child{text-align:right;padding-right:0}
+.bill .void td{text-decoration:line-through;color:var(--ink-soft)}
+.totals{margin-left:auto;font-variant-numeric:tabular-nums;font-size:14px}
+.totals div{display:flex;justify-content:space-between;gap:28px}
+.totals .grand{font:700 24px/1.2 var(--font-display);border-top:1.5px solid var(--line);margin-top:4px;padding-top:4px}
+.kds{background:#0E1420;color:#E8ECF4}
+.kds .cols{flex:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px;overflow-y:auto;overflow-x:hidden;align-content:start}
+.kds h3{font:600 18px/1 var(--font-display);margin-bottom:8px;color:#9BA7BE}
+.tkt{background:#1D2637;border-left:4px solid #F2B705;border-radius:6px;padding:8px;margin-bottom:8px;display:flex;flex-direction:column;gap:5px;font-size:14px}
+.tkt b{font:600 19px/1.1 var(--font-display)}
+.tkt .meta{display:flex;flex-wrap:wrap;gap:0 8px;justify-content:space-between;font-size:12.5px;color:#9BA7BE;font-variant-numeric:tabular-nums}
+.tkt.ready{border-left-color:#56C783;opacity:.6}
+.tkt.void{border-left-color:#F1766F;opacity:.7}
+.tkt.void b{text-decoration:line-through}
+.tkt button{border:0;border-radius:6px;background:#56C783;color:#0E1420;font-weight:700;padding:5px}
+.sum{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sum div{border:1.5px solid var(--line);border-radius:10px;padding:5px 9px;background:var(--panel)}
+.sum b{display:block;font:700 22px/1.1 var(--font-display);font-variant-numeric:tabular-nums}
+.sum span{font-size:12px;color:var(--ink-soft)}
+.alert{border-left:4px solid var(--signal);background:var(--signal-bg);color:var(--signal-ink);border-radius:6px;padding:7px 9px;font-size:13.5px}
+.alert.stop{border-left-color:var(--stop);background:var(--stop-bg);color:var(--stop)}
+.alert time{display:block;font-size:11.5px;opacity:.8}
+.empty{color:var(--ink-soft);border:1.5px dashed var(--line);border-radius:10px;padding:14px;text-align:center}
+
+/* shared log */
+.audit{margin:16px 20px 20px;background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:16px}
+.audit-h{display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.audit-h h2{font:600 26px/1.1 var(--font-display)}
+.audit-h p{max-width:65ch;color:var(--ink-soft)}
+.audit-scroll{overflow-x:auto}
+.foot{padding:0 20px 28px;color:var(--ink-soft);font-size:13px;max-width:90ch}
+
+@media (max-width:1180px){
+  .dev{height:520px}
+  .stage.soc,.stage.rst{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .phone{margin:0}
+  .guide{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .bar,.guide{padding-left:16px;padding-right:16px}
+  .stage{padding:16px 16px 8px}
+  .stage.soc,.stage.rst{grid-template-columns:minmax(0,1fr)}
+  .register,.audit{margin-left:16px;margin-right:16px}
+  .foot{padding:0 16px 24px}
+  .bar-right{margin-left:0}
+  .reg-scroll{overflow-x:auto}
+  .register .tbl{min-width:560px}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="live" class="sr" aria-live="polite"></div>
+<script>
+(function(){
+'use strict';
+var esc=function(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
+var rupee=function(n){return '₹'+Math.round(n).toLocaleString('en-IN');};
+var pad=function(n){return (n<10?'0':'')+n;};
+function fnv(str){var h=0x811c9dc5;for(var i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0;}return ('0000000'+h.toString(16)).slice(-8);}
+var BASE=18*3600+2*60, T0=Date.now(), EPOCH=0, S;
+var WAIT=10000, CALL_WAIT=12000, SOS_WAIT=15000, PIN='2580';
+function nowSec(){return BASE+Math.floor((Date.now()-T0)/1000);}
+function clock(){var s=nowSec();return pad(Math.floor(s/3600)%24)+':'+pad(Math.floor(s/60)%60)+':'+pad(s%60);}
+function mask(name){return name.replace(/\s*\(.*\)/,'').split(' ').filter(Boolean).map(function(w){return w.charAt(0)+'•••';}).join(' ');}
+function sel(v,cur){return v===cur?' selected':'';}
+
+var MENU=[
+ {id:'m1',name:'Paneer Tikka',price:320,st:'Hot'},{id:'m2',name:'Butter Chicken',price:420,st:'Hot'},
+ {id:'m3',name:'Garlic Naan',price:70,st:'Hot'},{id:'m4',name:'Kachumber Salad',price:140,st:'Cold'},
+ {id:'m5',name:'Gulab Jamun',price:160,st:'Cold'},{id:'m6',name:'Sweet Lassi',price:120,st:'Bar'},
+ {id:'m7',name:'Fresh Lime Soda',price:110,st:'Bar'}];
+var VOID_REASONS=['Guest changed their mind','Wrong dish entered','Dish not available','Complaint about the food'];
+var DISC_REASONS=['Regular guest','Complaint about the food','Long wait'];
+
+var SCENES=[
+ {view:'society',title:'A guest arrives with a pass',shows:'A guest with a pass gets in with one scan, and nobody has to pick up a phone.',steps:[
+  {t:'On the resident’s phone, choose “Invite a guest” and create the pass.',sel:'[data-action="res-invite"],[data-action="res-create-pass"]',done:'pass_created'},
+  {t:'On the guard’s tablet, choose “Scan QR” and pick the new pass.',sel:'[data-action="guard-scan"],[data-pass-state="active"][data-once="1"]',done:'scan_valid'}]},
+ {view:'society',title:'A delivery arrives and nobody answers',shows:'An approval never gets stuck. If the app is ignored the flat gets a phone call, and if that is ignored too the guard gets a clear next step.',steps:[
+  {t:'On the guard’s tablet, choose “Delivery” and ask the flat.',sel:'[data-action="guard-delivery"],[data-action="guard-ask"]',done:'walkin_sent'},
+  {t:'Leave the resident’s phone alone. After 10 seconds here (30 in the real product) it rings.',sel:'.phone-res',done:'call_placed'},
+  {t:'On the ringing phone, press 1 to let the delivery in. Or ignore the call for 12 seconds and see what the guard is offered.',sel:'[data-action="call-1"]',done:'call_resolved'}]},
+ {view:'society',title:'The gate loses internet',shows:'The gate keeps working without internet and loses nothing when it comes back.',steps:[
+  {t:'Switch “Gate internet” off in the top bar.',sel:'[data-action="toggle-net"]',done:'offline'},
+  {t:'Scan the tutor’s weekly pass. The gate opens.',sel:'[data-action="guard-scan"],[data-pass-state="active"]',done:'offline_scan_valid'},
+  {t:'Scan the plumber’s old pass. The gate refuses it.',sel:'[data-action="guard-scan"],[data-pass-state="expired"]',done:'offline_scan_rejected'},
+  {t:'Switch “Gate internet” back on and watch the register catch up.',sel:'[data-action="toggle-net"]',done:'synced'}]},
+ {view:'society',title:'Who can see a visitor record',shows:'Neighbours see nothing, the committee leaves a trace, and the resident can delete a visitor’s phone number and photo.',steps:[
+  {t:'On the dashboard, sign in as the neighbour. Visits to other flats are hidden.',sel:'#dash-role',done:'viewed_as_neighbour'},
+  {t:'Sign in as the committee secretary, open “Visitor log” and open the record of A••• V••• (Amit Verma) with a reason.',sel:'[data-action="dash-tab"][data-arg="log"][aria-pressed="false"],[data-action="dash-open"][data-arg="v1"],[data-action="dash-confirm"]',done:'record_opened'},
+  {t:'On the resident’s phone, open “My data” to see who looked.',sel:'[data-action="res-mydata"]',done:'mydata_opened'},
+  {t:'Delete the phone number and photo stored for Amit Verma.',sel:'[data-action="res-erase"]',done:'erased'}]},
+ {view:'society',title:'A resident presses SOS',shows:'Guards are alerted straight away, and the alert moves up the chain if no guard responds.',steps:[
+  {t:'On the resident’s phone, press SOS and confirm.',sel:'[data-action="res-sos"],[data-action="res-sos-send"]',done:'sos_sent'},
+  {t:'On the guard’s tablet, press “I am going”. Or wait 15 seconds to see the supervisor being phoned.',sel:'[data-action="guard-sos-ack"]',done:'sos_ack'}]},
+ {view:'society',title:'Paying maintenance',shows:'A payment turns into a receipt and a row in the society’s payment list without anyone typing it in.',steps:[
+  {t:'On the resident’s phone, pay the ₹3,500 due.',sel:'[data-action="res-pay"],[data-action="res-pay-now"]',done:'paid'}]},
+ {view:'restaurant',title:'Ordering from the table',shows:'A guest orders from the table with no app and no login, and each kitchen station gets its part.',steps:[
+  {t:'On the guest’s phone, add a few dishes and place the order.',sel:'[data-action="cust-add"],[data-action="cust-order"]',done:'order_placed'},
+  {t:'On the kitchen screen, mark one dish ready.',sel:'[data-action="kds-ready"]',done:'ticket_bumped'}]},
+ {view:'restaurant',title:'A cashier tries to cancel a dish',shows:'Cancelling a dish or giving a discount needs a manager PIN, and the owner hears about it straight away.',steps:[
+  {t:'On the billing screen, press “Cancel dish” next to a dish. Place an order first if the bill is empty.',sel:'[data-action="pos-void"]',done:'void_requested'},
+  {t:'Enter the manager PIN 2580 and approve. Watch the owner’s phone.',sel:'#f-pin,[data-action="pos-modal-ok"]',done:'void_approved'}]},
+ {view:'restaurant',title:'Someone changes an old bill',shows:'A bill changed behind the system’s back is caught, and every later bill is flagged for re-checking.',steps:[
+  {t:'Under the screens, press “Change a past bill in the database”.',sel:'[data-action="chain-tamper"]',done:'tampered'},
+  {t:'Press “Check the bills”.',sel:'[data-action="chain-check"]',done:'chain_checked'}]},
+ {view:'audit',title:'One log for both products',shows:'The society and the restaurant write to one shared audit log.',steps:[
+  {t:'Read down the log. Gate events and restaurant events sit in one list.',sel:'.audit .tbl',done:'audit_opened'},
+  {t:'Press “Check the log”.',sel:'[data-action="audit-verify"]',done:'audit_verified'}]},
+ {view:'audit',title:'Questions to ask afterwards',shows:'Ask each person these before they leave the room. Score the first four from 1 to 5.',qs:[
+  'Was the gate faster or easier than what you use today?','Do you trust how this handles residents’ or customers’ data?',
+  'Does working without internet matter to you?','Would you try this in a pilot?',
+  'Restaurants only: would cancel and discount control reduce your losses?','What is missing for a yes?',
+  'What price would feel fair?','Would you sign a letter saying you intend to pilot it?']}
+];
+
+var HI={scan:'QR स्कैन करें',walkin:'विज़िटर (बिना पास)',delivery:'डिलीवरी',staff:'स्टाफ़',online:'ऑनलाइन',offline:'इंटरनेट बंद',queue:'भेजना बाकी',
+ atGate:'अभी गेट पर',ask:'फ़्लैट से पूछें',allowed:'पास सही है। गेट खुल रहा है।',refused:'रोकें। अंदर न जाने दें।',back:'पीछे जाएँ',
+ waiting:'फ़्लैट के जवाब का इंतज़ार',calling:'फ़्लैट पर फ़ोन जा रहा है',callQueued:'फ़ोन की बारी का इंतज़ार',approved:'मंज़ूर',denied:'मना किया',kept:'पार्सल गेट पर रखा',
+ pick:'इस प्रोटोटाइप में स्कैन के लिए पास चुनें',noNet:'इंटरनेट नहीं है। इंटरकॉम पर फ़्लैट से पूछें।',
+ yes:'फ़्लैट ने हाँ कहा',no:'फ़्लैट ने मना किया',who:'आने वाले का नाम',flat:'फ़्लैट',company:'कंपनी',
+ markIn:'एंट्री करें',markOut:'बाहर गया',sos:'इमरजेंसी! फ़्लैट B-304',sosGo:'टावर B, तीसरी मंज़िल',going:'अभी जा रहे हैं',
+ today:'आज की एंट्री',skip:'अभी फ़ोन लगाएँ',intercom:'इंटरकॉम पर पूछें',nothing:'गेट पर कोई इंतज़ार में नहीं है।',
+ expired:'यह पास कल शाम 4 बजे ख़त्म हो गया।',future:'यह पास कल सुबह 10 बजे से चलेगा, आज नहीं।',used:'यह एक बार का पास है, पहले इस्तेमाल हो चुका है।',
+ onDevice:'बिना इंटरनेट के जाँचा गया',inside:'अभी अंदर है',outside:'अभी बाहर है',sec:'सेकंड',
+ noAnswer:'फ़्लैट से कोई जवाब नहीं',keep:'पार्सल गेट पर रखें',away:'वापस भेजें',carUnknown:'अनजान गाड़ी गेट पर',carVisitor:'विज़िटर एंट्री करें',
+ cActive:'सही',cExpired:'ख़त्म',cFuture:'अभी नहीं',cUsed:'इस्तेमाल हो चुका',noData:'इंटरनेट नहीं'};
+var EN={scan:'Scan QR',walkin:'Walk-in',delivery:'Delivery',staff:'Staff',online:'Online',offline:'No internet',queue:'Waiting to send',
+ atGate:'At the gate now',ask:'Ask the flat',allowed:'Allowed. Gate is opening.',refused:'Stop. Do not let in.',back:'Back',
+ waiting:'Waiting for the flat',calling:'Phoning the flat',callQueued:'Next in line for a phone call',approved:'Allowed',denied:'Turned away',kept:'Parcel kept at the gate',
+ pick:'In this prototype, pick a pass to scan',noNet:'No internet. Ask the flat on the intercom.',
+ yes:'Flat said yes',no:'Flat said no',who:'Visitor’s name',flat:'Flat',company:'Company',
+ markIn:'Check in',markOut:'Check out',sos:'SOS from flat B-304',sosGo:'Tower B, 3rd floor',going:'I am going',
+ today:'Today’s entries',skip:'Phone the flat now',intercom:'Ask on the intercom',nothing:'Nobody is waiting at the gate.',
+ expired:'This pass ran out yesterday at 4 pm.',future:'This pass starts tomorrow at 10 am.',used:'This one-time pass was already used.',
+ onDevice:'Checked without internet',inside:'Inside now',outside:'Outside now',sec:'s',
+ noAnswer:'No answer from the flat',keep:'Keep the parcel at the gate',away:'Turn away',carUnknown:'Unknown car at the gate',carVisitor:'Enter as a visitor',
+ cActive:'Valid',cExpired:'Expired',cFuture:'Not yet valid',cUsed:'Already used',noData:'No internet'};
+function T(k){return (S.lang==='hi'?HI:EN)[k];}
+
+function fresh(){
+ return {view:'society',scene:0,guideOpen:true,online:true,syncId:0,lang:'en',seq:0,done:{},hint:null,events:[],held:[],
+  form:{guest:'Priya Nair',when:'today',courier:'Swiggy',visitor:'Rahul Mehta',gflat:'B-304',reason:'Security incident',vreason:VOID_REASONS[0],dreason:DISC_REASONS[0],pin:''},
+  res:{screen:'home',pass:null,sosConfirm:false,cert:null,paid:false,notes:[{t:'17:59',text:'Your car KA 05 MN 4821 entered.'},{t:'17:58',text:'Lakshmi (cook) checked out.'}]},
+  guard:{screen:'home',kind:'delivery',result:null},
+  gate:{open:false,closeAt:0,changedAt:0,plate:'',plateOk:true,alert:false},
+  passes:[{id:'p1',guest:'Meera Iyer (tutor)',flat:'B-304',label:'Weekly pass, Monday to Friday, 5 pm to 7 pm',state:'active',once:false,code:'418207'},
+          {id:'p2',guest:'Ravi (plumber)',flat:'B-304',label:'Yesterday, 2 pm to 4 pm',state:'expired',once:true,code:'730915'}],
+  reqs:[],
+  visits:[{id:'v3',name:'Naveen Kumar',flat:'C-112',purpose:'Guest',t:'Today 13:30'},
+          {id:'v2',name:'Deepa Shah',flat:'A-101',purpose:'Guest',t:'Today 11:45'},
+          {id:'v0',name:'Lakshmi (cook)',flat:'B-304',purpose:'Daily help',t:'Today 07:10'},
+          {id:'v1',name:'Amit Verma',flat:'B-304',purpose:'Delivery',t:'Yesterday 16:20',phone:true,photo:true},
+          {id:'v4',name:'Sanjay Patil',flat:'A-101',purpose:'Technician',t:'Yesterday 15:05'}],
+  staff:[{id:'s1',name:'Lakshmi',role:'cook, flat B-304',inside:false},{id:'s2',name:'Raju',role:'driver, flat C-112',inside:true}],
+  access:[],sos:null,
+  dash:{role:'committee',tab:'overview',asking:null,opened:{},entries:142,paid:49,flats:60,review:[],
+        ledger:[{flat:'A-101',amt:3500,how:'UPI',no:'GM/26-27/0411'},{flat:'C-112',amt:4200,how:'UPI',no:'GM/26-27/0410'}]},
+  rst:{cart:{},cust:'menu',lines:[],lineSeq:0,bill:{paid:0,discount:0,how:[]},modal:null,pinFails:0,voids:[],discClosed:0,refunds:0,alertedBad:'',
+       alerts:[{t:'15:02',text:'Lunch closed: 5 bills, ₹6,993.',tone:''}],bills:[],checked:null},
+  auditOk:null};
+}
+function seed(){
+ log('society','Guard Suresh','Started the evening shift at the main gate.',{t:'14:00:05'});
+ log('restaurant','Platform','Lunch service closed: 5 bills, ₹6,993.',{t:'15:02:10'});
+ log('society','Gate','Lakshmi (cook) checked out.',{t:'17:58:12'});
+ log('society','Gate','Number plate KA 05 MN 4821 read. Car belongs to flat B-304. Gate opened.',{t:'17:59:40',tone:'ok',metric:'plate to open 1.1 s'});
+ var prev='00000000';
+ [['13:12',1260],['13:31',882],['13:55',2478],['14:20',630],['14:42',1743]].forEach(function(b,i){
+  var no='SR/26-27/'+(1041+i);var h=fnv(prev+no+b[0]+b[1]);S.rst.bills.push({no:no,t:b[0],total:b[1],printed:b[1],hash:h});prev=h;});
+ S.rst.lines.push({id:'k1',table:2,name:'Butter Chicken',qty:1,price:420,st:'Hot',status:'new',since:Date.now()-185000});
+ S.rst.lines.push({id:'k2',table:2,name:'Sweet Lassi',qty:2,price:120,st:'Bar',status:'new',since:Date.now()-185000});
+}
+function log(domain,actor,text,o){
+ o=o||{};var e={id:++S.seq,t:o.t||clock(),domain:domain,actor:actor,text:text,tone:o.tone||'',metric:o.metric||'',queued:!!o.queued,synced:false,born:o.t?0:Date.now()};
+ e.prev=S.events.length?S.events[S.events.length-1].hash:'00000000';
+ e.hash=fnv(e.prev+'|'+e.t+'|'+domain+'|'+actor+'|'+text);S.events.push(e);S.auditOk=null;return e;
+}
+function gateLog(actor,text,o){o=o||{};o.queued=!S.online;return log('society',actor,text,o);}
+function notify(text,x){var n={t:clock().slice(0,5),text:text};if(x&&x.dispute)n.dispute=x.dispute;S.res.notes.unshift(n);}
+function gateNotify(text,x){if(S.online)notify(text,x);else S.held.push({text:text,dispute:x&&x.dispute});}
+function mark(k){S.done[k]=true;}
+function later(ms,fn){var ep=EPOCH;setTimeout(function(){if(ep===EPOCH){fn();render();}},ms);}
+function openGate(){if(!S.gate.open)S.gate.changedAt=Date.now();S.gate.open=true;S.gate.closeAt=Date.now()+4500;}
+function closeGate(){if(S.gate.open){S.gate.open=false;S.gate.changedAt=Date.now();}}
+function addVisit(name,flat,purpose){var p=!S.online;S.visits.unshift({id:'n'+(++S.seq),name:name,flat:flat,purpose:purpose,t:'Today '+clock().slice(0,5),pending:p});if(!p)S.dash.entries++;}
+function cloudVisits(){return S.visits.filter(function(v){return !v.pending;});}
+function speed(a,b){return (a+Math.random()*(b-a)).toFixed(1);}
+function ownerAlert(text,tone){S.rst.alerts.unshift({t:clock().slice(0,5),text:text,tone:tone||''});}
+function billLines(){return S.rst.lines.filter(function(l){return l.table===4&&!l.closed;});}
+function billMath(){var sub=0,base=0,B=S.rst.bill;billLines().forEach(function(l){if(l.status!=='void'){sub+=l.qty*l.price;if(l.disc)base+=l.qty*l.price;}});
+ var disc=B.discount?Math.round(base*B.discount/100):0,gst=Math.round((sub-disc)*0.05),total=sub-disc+gst;return {sub:sub,disc:disc,gst:gst,total:total,due:total-B.paid};}
+function req(id){return S.reqs.filter(function(r){return r.id===id;})[0];}
+function line(id){return S.rst.lines.filter(function(l){return l.id===id;})[0];}
+function ringing(){var c=S.reqs.filter(function(r){return r.flat==='B-304'&&r.status==='calling';});return c[c.length-1];}
+function sosOpen(){return S.sos&&!S.sos.closed;}
+function finishReq(r,ok,how,viaIntercom){
+ r.status=ok?'approved':'denied';r.how=how;
+ if(ok){openGate();addVisit(r.who,r.flat,r.kind==='delivery'?'Delivery':'Visitor');
+  gateLog('Gate',r.who+' for flat '+r.flat+' let in. '+how+'. Gate opened.',{tone:'ok'});}
+ else gateLog('Gate',r.who+' for flat '+r.flat+' turned away. '+how+'. Gate stays closed.',{tone:'stop'});
+ if(r.flat==='B-304')gateNotify(r.who+(ok?' was let in. ':' was turned away. ')+how+'.',viaIntercom&&ok?{dispute:r.id}:null);
+}
+function payBill(how,who){
+ var m=billMath(),B=S.rst.bill;if(m.due<=0)return;B.paid+=m.due;B.how.push(how);
+ log('restaurant',who,(who==='Guest at table 4'?'Paid ':'Took ')+rupee(m.due)+' by '+how+' for table 4'+(how==='UPI'&&who==='Guest at table 4'?' (simulated)':'')+'.',{tone:'ok',metric:how==='cash'?'':'confirmed in '+speed(2.5,3.5)+' s'});
+}
+
+var A={
+ view:function(v){S.view=v;if(v==='audit')mark('audit_opened');},
+ 'toggle-net':function(){
+  S.online=!S.online;S.syncId++;
+  if(!S.online){log('society','Gate','Gate internet went off. The tablet and the barrier now work from what is saved on the device.',{tone:'warn'});mark('offline');
+   S.reqs.forEach(function(r){if(r.status==='pending'||r.status==='calling'){r.status='intercom';}});}
+  else{
+   var id=S.syncId,q=S.events.filter(function(e){return e.queued&&!e.synced;});
+   q.forEach(function(e,i){later(220*(i+1),function(){if(S.syncId===id)e.synced=true;});});
+   later(220*q.length+450,function(){
+    if(S.syncId!==id)return;
+    S.visits.forEach(function(v){if(v.pending){v.pending=false;S.dash.entries++;}});
+    S.held.forEach(function(h){notify(h.text,h);});S.held=[];
+    if(q.length){log('society','Gate','Gate internet is back. '+q.length+' saved '+(q.length===1?'entry':'entries')+' sent on. Nothing lost or repeated in this simulation.',{tone:'ok',metric:'caught up in '+(0.22*q.length+0.5).toFixed(1)+' s'});mark('synced');}
+    else log('society','Gate','Gate internet is back. Nothing was waiting to be sent.',{tone:'ok'});});
+  }
+ },
+ reset:function(){var v=S.view,sc=S.scene,g=S.guideOpen;boot();S.view=v;S.scene=sc;S.guideOpen=g;},
+ 'guide-toggle':function(){S.guideOpen=!S.guideOpen;},
+ 'scene-prev':function(){go(S.scene-1);},'scene-next':function(){go(S.scene+1);},'scene-jump':function(v){go(+v);},
+ 'scene-show':function(){
+  var sc=SCENES[S.scene];if(!sc.steps)return;var st=sc.steps.filter(function(s){return !S.done[s.done];})[0];if(!st)return;
+  S.view=sc.view;
+  var found=null;try{found=app.querySelector(st.sel);}catch(e){}
+  if(!found||!found.offsetParent){S.res.screen='home';S.res.sosConfirm=false;S.res.cert=null;S.guard.screen='home';
+   if(S.scene===3&&st.done==='record_opened'){S.dash.role='committee';S.dash.tab='log';S.dash.asking=null;}
+   if(S.scene===4||S.scene===5){S.dash.role='committee';S.dash.tab='overview';}}
+  S.hint={sel:st.sel,until:Date.now()+3200};},
+ // resident
+ 'res-home':function(){S.res.screen='home';},
+ 'res-invite':function(){S.res.screen='invite';},
+ 'res-create-pass':function(){
+  var name=(S.form.guest||'').trim()||'Guest',today=S.form.when==='today';
+  var p={id:'p'+(++S.seq),guest:name,flat:'B-304',label:today?'Today, 6 pm to 8 pm':'Tomorrow, 10 am to 12 noon',state:today?'active':'future',once:true,code:String(100000+Math.floor(Math.random()*899999))};
+  S.passes.unshift(p);S.res.pass=p.id;S.res.screen='pass';
+  log('society','Resident, flat B-304','Created a one-time pass for '+name+' ('+p.label+'). In the real product the pass is digitally signed; here that is simulated.');mark('pass_created');
+ },
+ 'res-approve':function(id){var r=req(id);if(r&&r.status==='pending'){finishReq(r,true,'Resident allowed it in the app');}},
+ 'res-deny':function(id){var r=req(id);if(r&&r.status==='pending'){finishReq(r,false,'Resident refused in the app');}},
+ 'call-1':function(){var r=ringing();if(r){finishReq(r,true,'Resident pressed 1 on the phone call');mark('call_resolved');}},
+ 'call-2':function(){var r=ringing();if(r){finishReq(r,false,'Resident pressed 2 on the phone call');mark('call_resolved');}},
+ 'res-dispute':function(id){
+  var r=req(id);S.res.notes.forEach(function(n){if(n.dispute===id)n.disputed=true;});if(!r)return;
+  S.dash.review.unshift({t:clock().slice(0,5),text:'Flat B-304 says nobody approved '+r.who+' on the intercom. Guard Suresh recorded a “yes” while the gate was offline.'});
+  log('society','Resident, flat B-304','Reported that nobody in the flat approved '+r.who+' on the intercom. Sent to the committee to review.',{tone:'warn'});},
+ 'res-mydata':function(){S.res.screen='mydata';mark('mydata_opened');},
+ 'res-erase':function(id){
+  var v=S.visits.filter(function(x){return x.id===id;})[0];if(!v)return;v.phone=false;v.photo=false;v.erased=true;
+  var no='DC-26-'+String(10000+Math.floor(Math.random()*89999));
+  S.res.cert={no:no,name:v.name,t:clock()};
+  log('society','Resident, flat B-304','Deleted the phone number and photo stored for visitor '+v.name+'. Deletion confirmation '+no+' shown.',{tone:'ok',metric:'done in '+speed(1.4,2.4)+' s'});mark('erased');
+ },
+ 'res-cert-close':function(){S.res.cert=null;},
+ 'res-sos':function(){if(!sosOpen())S.res.sosConfirm=true;},
+ 'res-sos-cancel':function(){S.res.sosConfirm=false;},
+ 'res-sos-send':function(){
+  S.res.sosConfirm=false;if(sosOpen())return;
+  S.sos={t:clock().slice(0,5),ack:false,escalated:false,closed:false,escalateAt:Date.now()+SOS_WAIT,steps:[clock().slice(0,5)+' SOS pressed in flat B-304']};
+  log('society','Resident, flat B-304','SOS pressed in flat B-304.',{tone:'stop'});
+  var how=S.online?'Guards and the committee alerted in the app.':'Gate internet is off, so the guards were alerted by SMS. Committee alerted in the app.';
+  log('society','Platform',how,{metric:'alert out in '+speed(2.2,3.6)+' s'});S.sos.steps.push(clock().slice(0,5)+' '+how);
+  mark('sos_sent');
+ },
+ 'guard-sos-ack':function(){if(!S.sos||S.sos.ack)return;S.sos.ack=true;S.sos.steps.push(clock().slice(0,5)+' Guard Suresh accepted and is on the way'+(S.online?'':' (reply sent by SMS)'));
+  gateLog('Guard Suresh','Accepted the SOS and is on the way to flat B-304.'+(S.online?'':' Reply sent by SMS because the gate internet is off.'),{tone:'ok'});
+  notify('Help is on the way. Guard Suresh accepted your SOS.');mark('sos_ack');},
+ 'dash-close-incident':function(){if(sosOpen()){S.sos.closed=true;log('society','Committee secretary','Closed the SOS incident for flat B-304.');}},
+ 'res-pay':function(){S.res.screen=S.res.paid?'receipt':'pay';},
+ 'res-pay-now':function(){
+  if(S.res.paid)return;S.res.paid=true;S.res.screen='receipt';S.dash.paid++;S.dash.ledger.unshift({flat:'B-304',amt:3500,how:'UPI',no:'GM/26-27/0412'});
+  log('society','Payment partner (simulated)','Payment of ₹3,500 from flat B-304 confirmed. Receipt GM/26-27/0412 and a row in the payment list were created.',{tone:'ok',metric:'confirmed in '+speed(2.5,3.5)+' s'});mark('paid');
+ },
+ // guard
+ lang:function(l){S.lang=l;},
+ 'guard-home':function(){S.guard.screen='home';},
+ 'guard-scan':function(){S.guard.screen='scan';},
+ 'guard-walkin':function(){S.guard.screen='form';S.guard.kind='walkin';S.form.gflat='B-304';},
+ 'guard-delivery':function(){S.guard.screen='form';S.guard.kind='delivery';S.form.gflat='B-304';},
+ 'guard-staff':function(){S.guard.screen='staff';},
+ 'guard-scan-pass':function(id){
+  var p=S.passes.filter(function(x){return x.id===id;})[0];if(!p)return;
+  if(p.state==='active'){
+   openGate();if(p.once)p.state='used';addVisit(p.guest,p.flat,'Guest with pass');
+   gateLog('Guard Suresh','Pass scanned for '+p.guest+', flat '+p.flat+'. Valid. Gate opened.'+(S.online?'':' Checked on the tablet, no internet needed.'),{tone:'ok',metric:'scan to open '+speed(0.7,1.1)+' s'});
+   gateNotify(p.guest+' has arrived at the gate.');
+   S.guard.result={ok:true,name:p.guest,flat:p.flat,offline:!S.online};
+   if(S.online){if(p.once)mark('scan_valid');}else mark('offline_scan_valid');
+  }else{
+   var why=p.state;closeGate();
+   gateLog('Guard Suresh','Pass for '+p.guest+' refused. '+EN[why]+' Gate stays closed.'+(S.online?'':' Checked on the tablet, no internet needed.'),{tone:'stop'});
+   S.guard.result={ok:false,name:p.guest,why:why,offline:!S.online};mark(S.online?'scan_rejected':'offline_scan_rejected');
+  }
+  S.guard.screen='result';
+ },
+ 'guard-ask':function(){
+  var kind=S.guard.kind,who=kind==='delivery'?S.form.courier+' delivery':((S.form.visitor||'').trim()||'Visitor'),flat=S.form.gflat;
+  var r={id:'r'+(++S.seq),who:who,flat:flat,kind:kind,status:'pending',deadline:Date.now()+WAIT};
+  S.reqs.unshift(r);S.guard.screen='home';
+  if(S.gate.alert&&kind==='walkin'){S.gate.alert=false;}
+  if(!S.online){r.status='intercom';gateLog('Guard Suresh',who+' is at the gate for flat '+flat+'. No internet, so the guard is asking on the intercom.',{tone:'warn'});}
+  else{if(flat!=='B-304')r.autoAt=Date.now()+3500;
+   gateLog('Guard Suresh',who+' is at the gate for flat '+flat+'. Request sent to everyone in the flat.',{metric:'reached phones in '+speed(0.9,1.6)+' s'});mark('walkin_sent');}
+ },
+ 'guard-skip':function(id){var r=req(id);if(r&&!r.autoAt)r.deadline=0;},
+ 'guard-yes':function(id){var r=req(id);if(r&&r.status==='intercom'){finishReq(r,true,'Flat said yes on the intercom, recorded by the guard',true);mark('offline_walkin');}},
+ 'guard-no':function(id){var r=req(id);if(r&&r.status==='intercom')finishReq(r,false,'Flat said no on the intercom, recorded by the guard',true);},
+ 'guard-intercom':function(id){var r=req(id);if(r&&r.status==='noanswer')r.status='intercom';},
+ 'guard-keep':function(id){var r=req(id);if(!r||r.status!=='noanswer')return;r.status='kept';
+  gateLog('Guard Suresh','Nobody in flat '+r.flat+' answered the app or the phone call. The '+r.who.replace(' delivery','')+' parcel is kept at the gate and the delivery person was not let in.',{tone:'warn'});
+  if(r.flat==='B-304')gateNotify('A '+r.who.replace(' delivery','')+' parcel is waiting for you at the gate. Nobody answered the app or the phone call.');},
+ 'guard-away':function(id){var r=req(id);if(r&&r.status==='noanswer')finishReq(r,false,'Nobody in the flat answered the app or the phone call');},
+ 'guard-car-visitor':function(){S.guard.screen='form';S.guard.kind='walkin';S.form.gflat='B-304';},
+ 'guard-car-away':function(){S.gate.alert=false;gateLog('Guard Suresh','Unknown car '+S.gate.plate+' turned away.',{tone:'stop'});S.gate.plate='';},
+ 'guard-staff-toggle':function(id){var s=S.staff.filter(function(x){return x.id===id;})[0];if(!s)return;s.inside=!s.inside;
+  gateLog('Guard Suresh',s.name+' ('+s.role+') checked '+(s.inside?'in':'out')+'.');if(s.id==='s1')gateNotify(s.name+' (cook) checked '+(s.inside?'in':'out')+'.');},
+ // gate
+ 'gate-known':function(){S.gate.plate='KA 05 MN 4821';S.gate.plateOk=true;S.gate.alert=false;openGate();
+  gateLog('Gate','Number plate KA 05 MN 4821 read. Car belongs to flat B-304. Gate opened.',{tone:'ok',metric:'plate to open '+speed(0.9,1.3)+' s'});gateNotify('Your car KA 05 MN 4821 entered.');},
+ 'gate-unknown':function(){S.gate.plate='KA 01 AB 1234';S.gate.plateOk=false;S.gate.alert=true;closeGate();S.guard.screen='home';
+  gateLog('Gate','Number plate KA 01 AB 1234 is not registered. Gate stays closed and the guard’s tablet asks him to check.',{tone:'warn'});},
+ 'gate-rfid':function(){if(S.gate.plateOk)S.gate.plate='';openGate();gateLog('Gate','Resident tag tapped (flat B-304). Gate opened.',{tone:'ok',metric:'tap to open '+speed(0.4,0.7)+' s'});},
+ // dashboard
+ 'dash-role':function(v){S.dash.role=v;S.dash.asking=null;
+  if(v==='neighbour'){S.dash.tab='log';log('society','Neighbour, flat A-101','Opened the visitor log. Only visits to flat A-101 were shown.');mark('viewed_as_neighbour');}},
+ 'dash-tab':function(t){S.dash.tab=t;S.dash.asking=null;},
+ 'dash-open':function(id){S.dash.asking=id;},
+ 'dash-cancel':function(){S.dash.asking=null;},
+ 'dash-confirm':function(id){
+  var v=S.visits.filter(function(x){return x.id===id;})[0];if(!v)return;S.dash.opened[id]=true;S.dash.asking=null;
+  log('society','Committee secretary','Opened the visit record of '+v.name+' (flat '+v.flat+'). Reason given: '+S.form.reason+'. The resident can see this.');
+  if(v.flat==='B-304'){S.access.unshift({t:clock().slice(0,5),who:'Committee secretary V. Kulkarni',what:'Visit by '+v.name+' ('+v.t+')',reason:S.form.reason});
+   notify('The committee secretary opened the record of your visitor '+v.name+'. Reason: '+S.form.reason+'.');}
+  if(id==='v1')mark('record_opened');
+ },
+ // restaurant
+ 'cust-add':function(id){S.rst.cart[id]=(S.rst.cart[id]||0)+1;},
+ 'cust-sub':function(id){if(S.rst.cart[id]){S.rst.cart[id]--;if(!S.rst.cart[id])delete S.rst.cart[id];}},
+ 'cust-order':function(){
+  var parts=[];MENU.forEach(function(m){var q=S.rst.cart[m.id];if(q){S.rst.lines.push({id:'k'+(++S.rst.lineSeq+10),table:4,name:m.name,qty:q,price:m.price,st:m.st,status:'new',since:Date.now()});parts.push(q+'× '+m.name);}});
+  if(!parts.length)return;S.rst.cart={};S.rst.cust='status';
+  log('restaurant','Guest at table 4','Ordered from the table QR code: '+parts.join(', ')+'. No app or login needed.',{metric:'in the kitchen in '+speed(0.6,1.0)+' s'});mark('order_placed');
+ },
+ 'cust-menu':function(){S.rst.cust='menu';},
+ 'cust-status-back':function(){S.rst.cust='status';},
+ 'cust-pay':function(){payBill('UPI','Guest at table 4');},
+ 'kds-ready':function(id){var l=line(id);if(!l||l.status!=='new')return;l.status='ready';log('restaurant','Kitchen',l.qty+'× '+l.name+' for table '+l.table+' marked ready.');mark('ticket_bumped');},
+ 'pos-void':function(id){S.rst.modal={kind:'void',line:id,err:''};S.form.pin='';mark('void_requested');},
+ 'pos-discount':function(){S.rst.modal={kind:'discount',err:''};S.form.pin='';},
+ 'pos-modal-cancel':function(){if(!S.rst.modal)return;var k=S.rst.modal.kind;S.rst.modal=null;
+  log('restaurant','Cashier Ramesh','Closed the approval box for a '+(k==='void'?'dish cancellation':'discount')+' at table 4 without a manager PIN. Nothing changed.');},
+ 'pos-modal-ok':function(){
+  var m=S.rst.modal,B=S.rst.bill;if(!m)return;
+  if(!S.form.pin){m.err='Enter the manager PIN.';return;}
+  if(S.form.pin!==PIN){m.err='Wrong PIN. Ask a manager to enter theirs, or go back.';S.form.pin='';S.rst.pinFails++;
+   log('restaurant','Cashier Ramesh','Wrong manager PIN entered at table 4. Nothing changed.',{tone:'warn'});ownerAlert('A wrong manager PIN was tried at table 4.','');return;}
+  var msg;
+  if(m.kind==='void'){var l=line(m.line);if(!l||l.status==='void'){S.rst.modal=null;return;}
+   var wasPaid=B.paid>0;l.status='void';var amt=l.qty*l.price;S.rst.voids.push({qty:l.qty,amt:amt});
+   msg=l.qty+'× '+l.name+' ('+rupee(amt)+') cancelled at table 4'+(wasPaid?' after payment':'')+'. Asked by cashier Ramesh, approved with the manager PIN (Sunita). Reason: '+S.form.vreason+'.';
+   var over=B.paid-billMath().total;
+   if(over>0){B.paid-=over;S.rst.refunds+=over;msg+=' Refund of '+rupee(over)+' to the guest recorded.';}
+   mark('void_approved');}
+  else{B.discount=10;var n=0;billLines().forEach(function(x){if(x.status!=='void'){x.disc=true;n+=x.qty;}});var d=billMath().disc;
+   msg='10% discount ('+rupee(d)+') given at table 4 on the '+n+' '+(n===1?'dish':'dishes')+' ordered so far. Asked by cashier Ramesh, approved with the manager PIN (Sunita). Reason: '+S.form.dreason+'.';}
+  S.rst.modal=null;log('restaurant','Manager Sunita',msg,{tone:'warn',metric:'owner told in '+speed(2.5,4.5)+' s'});ownerAlert(msg,'');
+ },
+ 'pos-pay':function(how){payBill(how||'cash','Cashier Ramesh');},
+ 'pos-close':function(){
+  var m=billMath(),bs=S.rst.bills;if(m.due>0||!billLines().length)return;
+  var no='SR/26-27/'+(1041+bs.length),t=clock().slice(0,5),prev=bs[bs.length-1].hash;
+  bs.push({no:no,t:t,total:m.total,printed:m.total,hash:fnv(prev+no+t+m.total)});S.rst.discClosed+=m.disc;
+  S.rst.lines.forEach(function(l){if(l.table===4)l.closed=true;});S.rst.bill={paid:0,discount:0,how:[]};S.rst.cust='menu';S.rst.checked=null;
+  log('restaurant','Cashier Ramesh','Bill '+no+' for '+rupee(m.total)+(m.total?'':' (every dish cancelled)')+' printed and closed. Its fingerprint joined the bill chain.');
+ },
+ 'chain-tamper':function(){var b=S.rst.bills[2];if(b.total===b.printed){b.total-=1000;S.rst.checked=null;}mark('tampered');},
+ 'chain-check':function(){
+  var run='00000000',bad=-1,bs=S.rst.bills;
+  S.rst.checked=bs.map(function(b,i){run=fnv(run+b.no+b.t+b.total);if(run!==b.hash&&bad<0)bad=i;return bad<0?'ok':(i===bad?'changed':'after');});
+  if(bad<0)log('restaurant','Platform','Bill check passed. All '+bs.length+' bills match their fingerprints.',{tone:'ok'});
+  else{var later2=bs.length-bad-1,txt='Bill '+bs[bad].no+' was changed after printing: '+rupee(bs[bad].printed)+' became '+rupee(bs[bad].total)+'. The '+later2+' '+(later2===1?'bill':'bills')+' after it need re-checking.';
+   log('restaurant','Platform',txt,{tone:'stop'});if(S.rst.alertedBad!==bs[bad].no){ownerAlert(txt,'stop');S.rst.alertedBad=bs[bad].no;}
+   mark('chain_checked');}
+ },
+ 'audit-verify':function(){var run='00000000',ok=true;S.events.forEach(function(e){var h=fnv(run+'|'+e.t+'|'+e.domain+'|'+e.actor+'|'+e.text);if(h!==e.hash||e.prev!==run)ok=false;run=e.hash;});S.auditOk={ok:ok,n:S.events.length};mark('audit_verified');}
+};
+function go(i){if(i<0||i>=SCENES.length)return;S.scene=i;S.hint=null;A.view(SCENES[i].view);
+ if(SCENES[i].view==='society'){S.res.screen='home';S.guard.screen='home';S.dash.asking=null;if(i===4||i===5){S.dash.role='committee';S.dash.tab='overview';}}}
+
+/* ---------- rendering ---------- */
+var ICON={
+ scan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM19 19h2v2h-2zM19 14h2M14 20h2"/></svg>',
+ walkin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17M3 21h18M14.5 12v1.5"/></svg>',
+ delivery:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5zM3 8l9 5 9-5M12 13v8"/></svg>',
+ staff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="2.5"/><path d="M8.5 17c.8-1.7 2-2.5 3.5-2.5s2.7.8 3.5 2.5"/></svg>',
+ phone:'<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>'};
+function qr(code){
+ var seed=parseInt(fnv(code),16),n=21,r='';
+ function rnd(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;}
+ for(var y=0;y<n;y++)for(var x=0;x<n;x++){
+  var zone=(x<8&&y<8)||(x>=n-8&&y<8)||(x<8&&y>=n-8),on;
+  if(zone){var fx=x<8?x:n-1-x,fy=y<8?y:n-1-y;on=fx<7&&fy<7&&(fx===0||fx===6||fy===0||fy===6||(fx>=2&&fx<=4&&fy>=2&&fy<=4));}
+  else on=rnd()>0.5;
+  if(on)r+='<rect x="'+x+'" y="'+y+'" width="1.02" height="1.02"/>';}
+ return '<svg class="qr" viewBox="-2 -2 25 25" role="img" aria-label="Sample QR code for this pass"><rect x="-2" y="-2" width="25" height="25" fill="#fff"/><g fill="#14213D">'+r+'</g></svg>';
+}
+function statusBar(net){return '<div class="status"><span data-clock="short"></span><span>'+net+'</span></div>';}
+function device(cls,status,body,foot,over,extra){
+ return '<div class="dev '+cls+'"'+(extra||'')+'>'+(status?statusBar(status):'')+'<div class="body"'+(over?' inert':'')+'>'+body+'</div>'+(foot?'<div class="foot-row"'+(over?' inert':'')+'>'+foot+'</div>':'')+(over||'')+'</div>';
+}
+
+function vBar(){
+ var tabs=[['society','Green Meadows Society'],['restaurant','Spice Route Restaurant'],['audit','Shared log']];
+ return '<header class="bar"><h1 class="brand"><b>Demo Cockpit</b><span>Clickable prototype with made-up data</span></h1>'+
+  '<nav class="views" aria-label="Views">'+tabs.map(function(t){return '<button aria-pressed="'+(S.view===t[0])+'" data-action="view" data-arg="'+t[0]+'">'+t[1]+'</button>';}).join('')+'</nav>'+
+  '<div class="bar-right"><span class="clock">Demo clock<b data-clock="long"></b></span>'+
+  '<button class="net" role="switch" aria-checked="'+S.online+'" data-action="toggle-net">Gate internet: '+(S.online?'on':'off')+'<i></i></button>'+
+  '<button class="btn ghost" data-action="reset">Start over</button></div></header>'+
+  (S.online?'<div class="band"></div>':'<div class="band off"><span>Gate internet is off. The gate is working from what is saved on its own device.</span></div>');
+}
+function vGuide(){
+ var sc=SCENES[S.scene];
+ if(!S.guideOpen)return '<section class="guide closed"><button class="link" data-action="guide-toggle">Show the walkthrough</button></section>';
+ var cur=-1;if(sc.steps)for(var i=0;i<sc.steps.length;i++)if(!S.done[sc.steps[i].done]){cur=i;break;}
+ var mid=sc.steps?'<ol class="g-steps">'+sc.steps.map(function(s,i){return '<li class="'+(S.done[s.done]?'done':(i===cur?'cur':''))+'">'+s.t+'</li>';}).join('')+'</ol>'
+               :'<ol class="g-qs">'+sc.qs.map(function(q){return '<li>'+q+'</li>';}).join('')+'</ol>';
+ return '<section class="guide" aria-label="Walkthrough"><div class="g-nav">'+
+  '<button class="btn ghost sm" data-action="scene-prev"'+(S.scene===0?' disabled':'')+'>Previous</button>'+
+  '<label class="sr" for="scene-jump">Scene</label><select id="scene-jump" data-action="scene-jump">'+SCENES.map(function(s,i){return '<option value="'+i+'"'+(i===S.scene?' selected':'')+'>'+(i+1)+'. '+s.title+'</option>';}).join('')+'</select>'+
+  '<button class="btn sm" data-action="scene-next"'+(S.scene===SCENES.length-1?' disabled':'')+'>Next scene</button></div>'+
+  '<div><p class="g-shows">'+sc.shows+'</p>'+mid+'</div>'+
+  '<div class="g-side">'+(sc.steps?(cur>=0?'<button class="btn ghost sm" data-action="scene-show">Show me where</button>':'<span class="chip ok">Scene done</span>'):'')+
+  '<button class="link" data-action="guide-toggle">Hide</button></div></section>';
+}
+
+function vResident(){
+ var r=S.res,b='',pendAll=S.reqs.filter(function(q){return q.flat==='B-304'&&q.status==='pending';}),pend=pendAll[pendAll.length-1];
+ var banner=pend?'<div class="req"><p><strong>'+esc(pend.who)+'</strong> is at the gate.'+(pendAll.length>1?' <span class="chip warn">+'+(pendAll.length-1)+' more waiting</span>':'')+'</p><div class="row"><button class="btn ok sm" data-action="res-approve" data-arg="'+pend.id+'">Allow</button><button class="btn ghost sm" data-action="res-deny" data-arg="'+pend.id+'">Refuse</button></div><p class="tiny">You get a phone call in <span data-deadline="'+pend.deadline+'"></span> s if nobody answers.</p></div>':'';
+ if(r.screen==='home'){
+  b='<div class="scr-h"><b>Green Meadows</b><span class="tiny">Flat B-304</span></div>'+banner+
+   '<button class="act" data-action="res-invite">Invite a guest</button>'+
+   '<button class="act" data-action="res-pay">'+(r.paid?'Maintenance paid for November':'Pay maintenance, ₹3,500 due')+'</button>'+
+   '<button class="act" data-action="res-mydata"><span>My data'+(S.access.length?'<span class="badge">'+S.access.length+'</span>':'')+'</span></button>'+
+   '<h3 class="sub">Latest</h3><ul class="notes">'+r.notes.slice(0,4).map(function(n){
+     return '<li><time>'+n.t+'</time>'+esc(n.text)+(n.dispute?(n.disputed?' <span class="chip warn">Reported to the committee</span>':' <button class="link" data-action="res-dispute" data-arg="'+n.dispute+'">This was not us</button>'):'')+'</li>';}).join('')+'</ul>';
+ }else if(r.screen==='invite'){
+  b='<div class="scr-h"><b>Invite a guest</b><button class="link" data-action="res-home">Back</button></div>'+banner+
+   '<label class="field" for="f-guest">Guest’s name<input id="f-guest" data-bind="guest" value="'+esc(S.form.guest)+'" maxlength="30" autocomplete="off"></label>'+
+   '<label class="field" for="f-when">When<select id="f-when" data-bind="when"><option value="today"'+sel('today',S.form.when)+'>Today, 6 pm to 8 pm</option><option value="tomorrow"'+sel('tomorrow',S.form.when)+'>Tomorrow, 10 am to 12 noon</option></select></label>'+
+   '<p class="tiny">We ask only for a name. No phone number or photo of your guest.</p>'+
+   '<button class="btn wide" data-action="res-create-pass">Create pass</button>';
+ }else if(r.screen==='pass'){
+  var p=S.passes.filter(function(x){return x.id===r.pass;})[0];
+  b='<div class="scr-h"><b>Pass for '+esc(p.guest)+'</b><button class="link" data-action="res-home">Done</button></div>'+banner+qr(p.code)+
+   '<p class="code">'+p.code+'</p><p class="tiny" style="text-align:center">'+p.label+'<br>'+(p.state==='used'?'Already used at the gate.':'Works once. Share it from your own WhatsApp (not sent in this prototype).')+'</p>';
+ }else if(r.screen==='mydata'){
+  var mine=cloudVisits().filter(function(v){return v.flat==='B-304';});
+  mine=mine.filter(function(v){return v.phone||v.photo||v.erased;}).concat(mine.filter(function(v){return !(v.phone||v.photo||v.erased);})).slice(0,5);
+  b='<div class="scr-h"><b>My data</b><button class="link" data-action="res-home">Back</button></div>'+banner+
+   '<h3 class="sub">Who looked at my records</h3>'+(S.access.length?'<ul class="notes">'+S.access.map(function(a){return '<li><time>'+a.t+'</time><strong>'+esc(a.who)+'</strong><br>'+esc(a.what)+'<br>Reason: '+esc(a.reason)+'</li>';}).join('')+'</ul>':'<p class="tiny">Nobody has opened your records.</p>')+
+   '<h3 class="sub">What is stored about my visitors</h3><ul class="notes">'+mine.map(function(v){
+     var extra=(v.phone||v.photo);
+     return '<li><strong>'+esc(v.name)+'</strong> <span class="tiny">'+v.t+'</span><br>'+(extra?'Name, flat, time, phone number, photo<br><button class="btn stop sm" style="margin-top:4px" data-action="res-erase" data-arg="'+v.id+'">Delete phone and photo</button>':'Name, flat and time of visit'+(v.erased?' <span class="chip ok">Phone and photo deleted</span>':''))+'</li>';}).join('')+'</ul>';
+ }else if(r.screen==='pay'){
+  b='<div class="scr-h"><b>Maintenance</b><button class="link" data-action="res-home">Back</button></div>'+banner+
+   '<div class="sheet"><p>November 2026, flat B-304</p><p class="code" style="letter-spacing:0">₹3,500</p><p class="tiny">In the real product the money goes to the society’s own bank account through a licensed payment company. Simulated here, no real money moves.</p><button class="btn wide" data-action="res-pay-now">Pay ₹3,500 by UPI</button></div>';
+ }else if(r.screen==='receipt'){
+  b='<div class="scr-h"><b>Paid</b><button class="link" data-action="res-home">Done</button></div>'+banner+
+   '<div class="cert"><strong>Receipt GM/26-27/0412</strong><br>₹3,500 received from flat B-304 by UPI on 15 Nov 2026.<br>Maintenance for November 2026.</div>';
+ }
+ var foot;
+ if(sosOpen()){var s=S.sos;foot='<div class="sos-status" role="status">'+(s.ack?'Guard Suresh is on the way.':(s.escalated?'No guard has accepted yet. The supervisor is being phoned.':'SOS sent at '+s.t+'. Guards alerted. Waiting for a guard to accept.'))+'</div>';}
+ else foot='<button class="sos" data-action="res-sos">SOS</button>';
+ var over='',cr=ringing();
+ if(cr)over='<div class="over call" role="alertdialog" aria-label="Incoming call"><div class="ring">'+ICON.phone+'</div><p><strong>Green Meadows gate</strong> is calling</p><p>“'+esc(cr.who)+' is at the gate for flat '+cr.flat+'. Press 1 to allow. Press 2 to refuse.”</p><div class="keys"><button class="k1" data-action="call-1"><b>1</b>Allow</button><button class="k2" data-action="call-2"><b>2</b>Refuse</button></div><p class="tiny" style="color:#cfe6d8">Stops ringing in <span data-deadline="'+(cr.callEnd||Date.now()+CALL_WAIT)+'"></span> s</p></div>';
+ else if(r.sosConfirm)over='<div class="over dim"><div class="sheet" role="dialog" aria-label="Send SOS"><p><strong>Send an SOS to the guards now?</strong></p><p class="tiny">Guards and the committee are alerted with your flat number. If no guard accepts, the supervisor is phoned.</p><button class="btn ghost wide" data-action="res-sos-cancel">Cancel</button><button class="btn stop wide" data-action="res-sos-send">Send SOS</button></div></div>';
+ else if(r.cert)over='<div class="over dim"><div class="sheet" role="dialog" aria-label="Deletion confirmation"><div class="cert"><strong>Deletion confirmation '+r.cert.no+'</strong><br>Deleted at '+r.cert.t+': phone number and photo of '+esc(r.cert.name)+'.<br>Kept: name, flat and time of visit, held one year in the gate’s security record.</div><button class="btn wide" data-action="res-cert-close">Close</button></div></div>';
+ return '<section class="actor"><h2>Resident’s phone</h2><p class="who">Anita Rao, flat B-304</p>'+device('phone phone-res','5G',b,foot,over)+'</section>';
+}
+
+function vGuard(){
+ var g=S.guard,b='',q=S.events.filter(function(e){return e.queued&&!e.synced;}).length;
+ var head='<div class="row" style="justify-content:space-between"><span class="lang" role="group" aria-label="Language"><button lang="hi" aria-pressed="'+(S.lang==='hi')+'" data-action="lang" data-arg="hi">हिंदी</button><button lang="en" aria-pressed="'+(S.lang==='en')+'" data-action="lang" data-arg="en">English</button></span>'+
+  '<span class="row">'+(q?'<span class="chip warn">'+T('queue')+': '+q+'</span>':'')+'<span class="chip '+(S.online?'ok':'warn')+'">'+(S.online?T('online'):T('offline'))+'</span></span></div>';
+ var back='<button class="btn ghost" data-action="guard-home">'+T('back')+'</button>';
+ if(g.screen==='home'){
+  var isOpen=function(r){return ['pending','calling','noanswer','intercom'].indexOf(r.status)>=0;},rg=ringing();
+  var open=S.reqs.filter(isOpen).reverse(),done=S.reqs.filter(function(r){return !isOpen(r);}).slice(0,2);
+  var card=function(r){
+   var st,extra='';
+   if(r.status==='pending'){st='<span class="chip info">'+T('waiting')+' <span data-deadline="'+r.deadline+'"></span> '+T('sec')+'</span>';if(!r.autoAt)extra='<button class="link" data-action="guard-skip" data-arg="'+r.id+'">'+T('skip')+'</button>';}
+   else if(r.status==='calling')st=r===rg?'<span class="chip warn">'+T('calling')+'</span>':'<span class="chip info">'+T('callQueued')+'</span>';
+   else if(r.status==='noanswer'){st='<span class="chip stop">'+T('noAnswer')+'</span>';extra='<div class="row">'+(r.kind==='delivery'?'<button class="btn sm" data-action="guard-keep" data-arg="'+r.id+'">'+T('keep')+'</button>':'')+'<button class="btn ghost sm" data-action="guard-intercom" data-arg="'+r.id+'">'+T('intercom')+'</button><button class="btn ghost sm" data-action="guard-away" data-arg="'+r.id+'">'+T('away')+'</button></div>';}
+   else if(r.status==='intercom'){st='<span class="chip warn">'+T('intercom')+'</span>';extra=(S.online?'':'<p class="tiny">'+T('noNet')+'</p>')+'<div class="row"><button class="btn ok sm" data-action="guard-yes" data-arg="'+r.id+'">'+T('yes')+'</button><button class="btn ghost sm" data-action="guard-no" data-arg="'+r.id+'">'+T('no')+'</button></div>';}
+   else st='<span class="chip '+(r.status==='approved'?'ok':(r.status==='kept'?'info':'stop'))+'">'+T(r.status==='approved'?'approved':(r.status==='kept'?'kept':'denied'))+'</span>';
+   return '<div class="card"><div class="row" style="justify-content:space-between"><strong>'+esc(r.who)+', '+r.flat+'</strong>'+st+'</div>'+extra+'</div>';};
+  var car=S.gate.alert?'<div class="card" style="border-color:var(--signal)"><div class="row" style="justify-content:space-between"><strong>'+T('carUnknown')+'</strong><span class="plate" style="font-size:18px;margin:0">'+S.gate.plate+'</span></div><div class="row"><button class="btn sm" data-action="guard-car-visitor">'+T('carVisitor')+'</button><button class="btn ghost sm" data-action="guard-car-away">'+T('away')+'</button></div></div>':'';
+  var todays=S.visits.filter(function(v){return v.t.indexOf('Today')===0;}).slice(0,4);
+  b=head+'<div class="tiles">'+['scan','walkin','delivery','staff'].map(function(k){return '<button class="tile" data-action="guard-'+k+'">'+ICON[k]+T(k)+'</button>';}).join('')+'</div>'+
+   '<h3 class="sub">'+T('atGate')+(open.length>1?' ('+open.length+')':'')+'</h3>'+(car+open.map(card).join('')+done.map(card).join('')||'<p class="tiny">'+T('nothing')+'</p>')+
+   '<h3 class="sub">'+T('today')+'</h3><ul class="list">'+todays.map(function(v){return '<li><span>'+esc(mask(v.name))+'</span><span>'+v.flat+', '+v.t.replace('Today ','')+'</span></li>';}).join('')+'</ul>';
+ }else if(g.screen==='scan'){
+  b=head+'<div class="finder" aria-hidden="true"></div><p class="tiny">'+T('pick')+'</p>'+S.passes.map(function(p){
+    var lab={active:['ok',T('cActive')],expired:['stop',T('cExpired')],future:['warn',T('cFuture')],used:['stop',T('cUsed')]}[p.state];
+    return '<button class="pick" data-action="guard-scan-pass" data-arg="'+p.id+'" data-pass-state="'+p.state+'" data-once="'+(p.once?1:0)+'"><span><strong>'+esc(p.guest)+'</strong><small>'+p.label+'</small></span><span class="chip '+lab[0]+'">'+lab[1]+'</span></button>';}).join('')+back;
+ }else if(g.screen==='result'){
+  var x=g.result;
+  b=head+(x.ok?'<div class="result ok"><b>'+T('allowed')+'</b><p>'+esc(x.name)+', '+x.flat+'</p>'+(x.offline?'<span class="chip warn">'+T('onDevice')+'</span>':'')+'</div>'
+            :'<div class="result stop"><b>'+T('refused')+'</b><p>'+esc(x.name)+'</p><p>'+T(x.why)+'</p>'+(x.offline?'<span class="chip warn">'+T('onDevice')+'</span>':'')+'</div>')+back;
+ }else if(g.screen==='form'){
+  var who=g.kind==='delivery'
+   ?'<label class="field" for="f-courier">'+T('company')+'<select id="f-courier" data-bind="courier">'+['Swiggy','Zomato','Amazon','Blinkit'].map(function(c){return '<option'+sel(c,S.form.courier)+'>'+c+'</option>';}).join('')+'</select></label>'
+   :'<label class="field" for="f-visitor">'+T('who')+'<input id="f-visitor" data-bind="visitor" value="'+esc(S.form.visitor)+'" maxlength="30" autocomplete="off"></label>';
+  b=head+'<h3 class="sub">'+T(g.kind)+'</h3>'+who+
+   '<label class="field" for="f-gflat">'+T('flat')+'<select id="f-gflat" data-bind="gflat"><option'+sel('B-304',S.form.gflat)+'>B-304</option><option'+sel('A-101',S.form.gflat)+'>A-101</option></select></label>'+
+   '<div class="row"><button class="btn" data-action="guard-ask">'+T('ask')+'</button>'+back+'</div>';
+ }else if(g.screen==='staff'){
+  b=head+'<h3 class="sub">'+T('staff')+'</h3>'+S.staff.map(function(s){return '<div class="card"><div class="row" style="justify-content:space-between"><span><strong>'+s.name+'</strong><br><span class="tiny">'+s.role+'</span></span><span class="chip '+(s.inside?'ok':'info')+'">'+(s.inside?T('inside'):T('outside'))+'</span></div><button class="btn ghost sm" data-action="guard-staff-toggle" data-arg="'+s.id+'">'+(s.inside?T('markOut'):T('markIn'))+'</button></div>';}).join('')+back;
+ }
+ var over=(sosOpen()&&!S.sos.ack)?'<div class="over alarm" role="alertdialog" aria-label="SOS"><b>'+T('sos')+'</b><p>'+T('sosGo')+(S.online?'':' (SMS)')+'</p><button class="btn ghost" style="background:#fff;color:#C0262D;box-shadow:none" data-action="guard-sos-ack">'+T('going')+'</button></div>':'';
+ return '<section class="actor"><h2>Guard’s tablet</h2><p class="who">Suresh, main gate</p>'+device('tablet guard'+(S.lang==='hi'?' hi':''),S.online?'4G':T('noData'),b,'',over,' lang="'+S.lang+'"')+'</section>';
+}
+
+function vGate(){
+ var g=S.gate,el=Math.min(900,Date.now()-g.changedAt);
+ return '<section class="actor"><h2>Main gate</h2><p class="who">Barrier and plate camera, simulated</p><div class="dev gate">'+
+  '<div class="plate-cam">Number plate camera<br><span class="plate'+(g.plate?'':' none')+'">'+(g.plate||'No car')+'</span> '+(g.plate?'<span class="chip '+(g.plateOk?'ok':'stop')+'">'+(g.plateOk?'Flat B-304':'Not registered')+'</span>':'')+'</div>'+
+  '<div class="scene '+(g.open?'open':'shut')+'" style="--el:-'+el+'ms" aria-hidden="true"><div class="booth"></div><div class="post"></div><div class="arm"></div><div class="road"></div></div>'+
+  '<p class="gate-state'+(g.open?' open':'')+'">'+(g.open?'Gate open':'Gate closed')+'</p>'+
+  '<div class="gate-btns"><button class="btn ghost" data-action="gate-known">Resident’s car arrives</button><button class="btn ghost" data-action="gate-unknown">Unknown car arrives</button><button class="btn ghost" data-action="gate-rfid">Resident taps a tag</button></div></div></section>';
+}
+
+function vDash(){
+ var d=S.dash,b='',pct=Math.round(d.paid/d.flats*100),vis=cloudVisits();
+ var head='<label class="field" for="dash-role" style="flex-direction:row;align-items:center;gap:8px">Signed in as<select id="dash-role" data-action="dash-role"><option value="committee"'+sel('committee',d.role)+'>Committee secretary</option><option value="neighbour"'+sel('neighbour',d.role)+'>Neighbour, flat A-101</option></select></label>';
+ if(d.role==='neighbour'){
+  var own=vis.filter(function(v){return v.flat==='A-101';});
+  b=head+'<h3 class="sub">Visitors to my flat, A-101</h3><table class="tbl"><thead><tr><th>When</th><th>Visitor</th><th>Why</th></tr></thead><tbody>'+own.map(function(v){return '<tr><td>'+v.t+'</td><td>'+esc(v.name)+'</td><td>'+v.purpose+'</td></tr>';}).join('')+'</tbody></table>'+
+   '<p class="hidden-note"><strong>Visits to other flats are hidden from you.</strong><br>A resident sees only the visitors to their own flat.</p>';
+ }else{
+  var tabs='<div class="tabs"><button aria-pressed="'+(d.tab==='overview')+'" data-action="dash-tab" data-arg="overview">Overview</button><button aria-pressed="'+(d.tab==='log')+'" data-action="dash-tab" data-arg="log">Visitor log</button></div>';
+  if(d.tab==='overview'){
+   var inc=sosOpen()?'<div class="incident"><div class="row" style="justify-content:space-between"><strong>SOS, flat B-304</strong><span class="chip '+(S.sos.ack?'ok':'stop')+'" style="'+(S.sos.ack?'':'background:var(--panel)')+'">'+(S.sos.ack?'Guard on the way':'Waiting for a guard')+'</span></div><ol>'+S.sos.steps.map(function(s){return '<li>'+esc(s)+'</li>';}).join('')+'</ol>'+(S.sos.ack?'<button class="btn ghost sm" style="margin-top:6px" data-action="dash-close-incident">Close incident</button>':'')+'</div>':'';
+   var rev=d.review.map(function(x){return '<div class="alert"><time>'+x.t+' To review</time>'+esc(x.text)+'</div>';}).join('');
+   b=head+tabs+'<div class="kpis"><div class="kpi"><b>'+d.entries+'</b><span>visitor entries today</span></div><div class="kpi"><b>'+(sosOpen()?1:0)+'</b><span>open incidents</span></div><div class="kpi"><b>'+pct+'%</b><span>'+d.paid+' of '+d.flats+' flats paid</span></div></div>'+inc+rev+
+    '<h3 class="sub">Latest payments</h3><table class="tbl"><thead><tr><th>Flat</th><th>Amount</th><th>Receipt</th></tr></thead><tbody>'+d.ledger.slice(0,3).map(function(l){return '<tr><td>'+l.flat+'</td><td>'+rupee(l.amt)+' by '+l.how+'</td><td>'+l.no+'</td></tr>';}).join('')+'</tbody></table>';
+  }else{
+   b=head+tabs+'<p class="tiny">Names are masked. Opening a record needs a reason, and the resident is told.</p><table class="tbl"><thead><tr><th>When</th><th>Flat</th><th>Visitor</th><th></th></tr></thead><tbody>'+vis.slice(0,30).map(function(v){
+     var open=d.opened[v.id],cell,held=(v.phone||v.photo)?'Phone and photo stay hidden.':(v.erased?'Phone and photo deleted by the resident.':'No phone or photo held.');
+     if(d.asking===v.id)cell='<td colspan="2"><label class="field" for="f-reason">Why do you need this record?<select id="f-reason" data-bind="reason">'+['Security incident','Resident complaint','Delivery dispute'].map(function(x){return '<option'+sel(x,S.form.reason)+'>'+x+'</option>';}).join('')+'</select></label><div class="row" style="margin-top:6px"><button class="btn sm" data-action="dash-confirm" data-arg="'+v.id+'">Open record</button><button class="btn ghost sm" data-action="dash-cancel">Cancel</button></div></td>';
+     else cell='<td>'+(open?'<strong>'+esc(v.name)+'</strong><br><span class="tiny">'+v.purpose+'. '+held+'</span>':esc(mask(v.name)))+'</td><td>'+(open?'<span class="chip info">Opened</span>':'<button class="link" data-action="dash-open" data-arg="'+v.id+'">Open</button>')+'</td>';
+     return '<tr><td class="nw">'+v.t+'</td><td class="nw">'+v.flat+'</td>'+cell+'</tr>';}).join('')+'</tbody></table>';
+  }
+ }
+ return '<section class="actor"><h2>Committee dashboard</h2><p class="who">Web console for the managing committee</p><div class="dev window"><div class="win-bar"><i></i><i></i><i></i><span>Green Meadows console</span></div><div class="body">'+b+'</div></div></section>';
+}
+
+function vRegister(){
+ var ev=S.events.filter(function(e){return e.domain==='society';}).slice(-40).reverse(),now=Date.now();
+ return '<section class="register" aria-label="Gate register"><div class="reg-h"><h2>Gate register</h2><p class="tiny">The presenter’s view of everything that happens, newest first. No resident or guard sees this list. Speeds are sample values; the working demo will show measured speeds.</p></div><div class="reg-scroll"><table class="tbl"><thead><tr><th>Time</th><th>Who</th><th>What happened</th><th>Speed (sample)</th><th>Sent</th></tr></thead><tbody>'+
+  ev.map(function(e){var saved=e.queued?(e.synced?'<span class="chip ok">Sent when internet returned</span>':'<span class="chip warn">Waiting on the gate device</span>'):'<span class="tiny">At once</span>',age=now-e.born;
+   return '<tr'+(age<2600?' class="fresh" style="--age:-'+age+'ms"':'')+'><td>'+e.t+'</td><td>'+esc(e.actor)+'</td><td'+(e.tone?' class="t-'+e.tone+'"':'')+'>'+esc(e.text)+'</td><td>'+esc(e.metric)+'</td><td>'+saved+'</td></tr>';}).join('')+'</tbody></table></div></section>';
+}
+
+function vCustomer(){
+ var R=S.rst,B=R.bill,b,foot='',lines=billLines(),m=billMath();
+ if(R.cust==='menu'){
+  var cnt=0,tot=0;MENU.forEach(function(x){var q=R.cart[x.id]||0;cnt+=q;tot+=q*x.price;});
+  b='<div class="scr-h"><b>Spice Route</b><span class="tiny">Table 4</span></div><p class="tiny">You scanned the code on the table. No app, no login.</p><ul class="menu">'+MENU.map(function(x){var q=R.cart[x.id]||0;
+    return '<li><span>'+x.name+'<small>'+rupee(x.price)+'</small></span><span class="step">'+(q?'<button aria-label="Remove one '+x.name+'" data-action="cust-sub" data-arg="'+x.id+'">−</button><b>'+q+'</b>':'')+'<button aria-label="Add one '+x.name+'" data-action="cust-add" data-arg="'+x.id+'">+</button></span></li>';}).join('')+'</ul>'+(lines.length?'<button class="link" data-action="cust-status-back">See my order</button>':'');
+  foot='<button class="btn wide" data-action="cust-order"'+(cnt?'':' disabled')+'>'+(cnt?'Place order, '+rupee(tot)+' + GST':'Add dishes to order')+'</button>';
+ }else{
+  b='<div class="scr-h"><b>Your order</b><span class="tiny">Table 4</span></div><ul class="notes">'+lines.map(function(l){var c=l.status==='ready'?['ok','Ready']:(l.status==='void'?['stop','Cancelled']:['info','Being prepared']);
+    return '<li class="row" style="justify-content:space-between"><span>'+l.qty+'× '+l.name+'</span><span class="chip '+c[0]+'">'+c[1]+'</span></li>';}).join('')+'</ul>'+
+   '<div class="totals" style="width:100%"><div><span>Food and drink</span><span>'+rupee(m.sub)+'</span></div>'+(m.disc?'<div><span>Discount</span><span>−'+rupee(m.disc)+'</span></div>':'')+'<div><span>GST 5%</span><span>'+rupee(m.gst)+'</span></div><div class="grand"><span>Total</span><span>'+rupee(m.total)+'</span></div>'+(B.paid&&m.due>0?'<div><span>Already paid</span><span>'+rupee(B.paid)+'</span></div>':'')+'</div>'+
+   (m.total===0?'<div class="cert">Nothing to pay.</div>':(m.due<=0?'<div class="cert">Paid '+rupee(B.paid)+'. Thank you.</div>':''));
+  foot=(m.due>0?'<button class="btn wide" data-action="cust-pay">Pay '+rupee(m.due)+' by UPI</button>':'')+'<button class="btn ghost wide" data-action="cust-menu">Order more</button>';
+ }
+ return '<section class="actor"><h2>Guest’s phone</h2><p class="who">At table 4, ordering from the QR code</p>'+device('phone','5G',b,foot,'')+'</section>';
+}
+
+function vPOS(){
+ var R=S.rst,B=R.bill,lines=billLines(),m=billMath(),b,foot='';
+ if(!lines.length)b='<div class="scr-h"><b>Table 4</b><span class="tiny">Cashier: Ramesh</span></div><p class="empty">No open bill. Place an order from the guest’s phone.</p>';
+ else{
+  var st=m.total===0?['info','Nothing to pay']:(m.due<=0?['ok','Paid']:(B.paid?['warn','Part paid']:['info','Open']));
+  b='<div class="scr-h"><b>Table 4</b><span class="row"><span class="chip '+st[0]+'">'+st[1]+'</span><span class="tiny">Cashier: Ramesh</span></span></div>'+
+  '<table class="tbl bill"><thead><tr><th>Dish</th><th>Qty</th><th>Amount</th><th></th></tr></thead><tbody>'+lines.map(function(l){return '<tr class="'+(l.status==='void'?'void':'')+'"><td>'+l.name+(l.disc&&l.status!=='void'?' <span class="tiny">−10%</span>':'')+'</td><td>'+l.qty+'</td><td>'+rupee(l.qty*l.price)+'</td><td>'+(l.status==='void'?'<span class="chip stop">Cancelled</span>':'<button class="btn ghost sm" data-action="pos-void" data-arg="'+l.id+'">Cancel dish</button>')+'</td></tr>';}).join('')+'</tbody></table>'+
+  '<div class="totals"><div><span>Food and drink</span><span>'+rupee(m.sub)+'</span></div>'+(B.discount?'<div><span>Discount 10% on marked dishes</span><span>−'+rupee(m.disc)+'</span></div>':'')+'<div><span>GST 5%</span><span>'+rupee(m.gst)+'</span></div><div class="grand"><span>Total</span><span>'+rupee(m.total)+'</span></div>'+
+  (B.paid?'<div><span>Paid ('+B.how.join(', ')+')</span><span>'+rupee(B.paid)+'</span></div>':'')+(B.paid&&m.due>0?'<div><span>Still to pay</span><span>'+rupee(m.due)+'</span></div>':'')+'</div>';
+  foot=(!B.discount&&!B.paid&&m.sub>0?'<button class="btn ghost" data-action="pos-discount">Give 10% discount</button>':'')+
+   (m.due>0?'<button class="btn" data-action="pos-pay" data-arg="cash">Take cash</button><button class="btn" data-action="pos-pay" data-arg="card">Take card</button><button class="btn" data-action="pos-pay" data-arg="UPI">Take UPI</button>'
+           :'<button class="btn" data-action="pos-close">Print and close bill</button>');
+ }
+ var over='';
+ if(R.modal){var l=R.modal.kind==='void'?line(R.modal.line):null,isV=R.modal.kind==='void',list=isV?VOID_REASONS:DISC_REASONS,key=isV?'vreason':'dreason';
+  over='<div class="over dim"><div class="sheet" role="dialog" aria-modal="true" aria-label="Manager approval"><p><strong>'+(l?'Remove '+l.qty+'× '+l.name+' from the bill?':'Give a 10% discount on the dishes ordered so far?')+'</strong></p><p class="tiny">This needs a manager. The owner is told as soon as it is approved.</p>'+
+   '<label class="field" for="f-vreason">Reason<select id="f-vreason" data-bind="'+key+'">'+list.map(function(x){return '<option'+sel(x,S.form[key])+'>'+x+'</option>';}).join('')+'</select></label>'+
+   '<label class="field" for="f-pin">Manager PIN (2580 in this prototype)<input id="f-pin" data-bind="pin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" value="'+esc(S.form.pin)+'"></label>'+
+   (R.modal.err?'<p class="err" role="alert">'+R.modal.err+'</p>':'')+
+   '<div class="row"><button class="btn" data-action="pos-modal-ok">Approve with PIN</button><button class="btn ghost" data-action="pos-modal-cancel">Go back</button></div></div></div>';}
+ return '<section class="actor"><h2>Billing screen</h2><p class="who">Cashier’s counter</p>'+device('tablet','Wi-Fi',b,foot,over)+'</section>';
+}
+function vKDS(){
+ var cols=['Hot','Cold','Bar'].map(function(st){var ls=S.rst.lines.filter(function(l){return l.st===st&&!(l.closed&&l.status!=='new');});
+  return '<div><h3>'+st+' station</h3>'+(ls.map(function(l){return '<div class="tkt '+(l.status==='new'?'':l.status)+'"><div class="meta"><span>Table '+l.table+'</span><span data-since="'+l.since+'"></span></div><b>'+l.qty+'× '+l.name+'</b>'+(l.status==='new'?'<button data-action="kds-ready" data-arg="'+l.id+'">Ready</button>':'<span>'+(l.status==='ready'?'Ready':'Cancelled')+'</span>')+'</div>';}).join('')||'<p class="tiny" style="color:#9BA7BE">Nothing to make.</p>')+'</div>';}).join('');
+ return '<section class="actor"><h2>Kitchen screen</h2><p class="who">One column for each station</p><div class="dev tablet kds"><div class="cols">'+cols+'</div></div></section>';
+}
+function vOwner(){
+ var R=S.rst,got=R.bill.paid;R.bills.forEach(function(b){got+=b.printed;});
+ var vq=0,vsum=0;R.voids.forEach(function(v){vq+=v.qty;vsum+=v.amt;});
+ var b='<div class="scr-h"><b>Spice Route</b><span class="tiny">Owner</span></div>'+
+  '<h3 class="sub">Alerts</h3>'+R.alerts.slice(0,3).map(function(a){return '<div class="alert '+a.tone+'"><time>'+a.t+'</time>'+esc(a.text)+'</div>';}).join('')+(R.alerts.length>3?'<p class="tiny">'+(R.alerts.length-3)+' earlier alerts</p>':'')+
+  '<h3 class="sub">Today so far</h3><div class="sum"><div><b>'+rupee(got)+'</b><span>collected, with GST</span></div><div><b>'+R.bills.length+'</b><span>bills closed</span></div><div><b>'+vq+(vsum?' ('+rupee(vsum)+')':'')+'</b><span>dishes cancelled</span></div><div><b>'+rupee(R.discClosed+billMath().disc)+'</b><span>discounts given</span></div><div><b>'+rupee(R.refunds)+'</b><span>refunds recorded</span></div><div><b>'+R.pinFails+'</b><span>wrong manager PIN tries</span></div></div>';
+ return '<section class="actor"><h2>Owner’s phone</h2><p class="who">Kavita Menon, away from the restaurant</p>'+device('phone','5G',b,'','')+'</section>';
+}
+function vChain(){
+ var R=S.rst,lab={ok:['ok','Matches'],changed:['stop','Changed after printing'],after:['warn','Needs re-checking']};
+ return '<section class="register" aria-label="Bill chain"><div class="reg-h"><h2>Closed bills</h2><div class="row"><button class="btn ghost sm" data-action="chain-tamper">Change a past bill in the database</button><button class="btn sm" data-action="chain-check">Check the bills</button></div></div>'+
+  '<p class="tiny" style="padding:0 14px 6px">Each bill carries a fingerprint built from its own contents and the bill before it, so a quiet change breaks the chain. The fingerprints here are simplified for the prototype.</p>'+
+  '<div class="reg-scroll"><table class="tbl"><thead><tr><th>Bill</th><th>Check</th><th>Time</th><th>Total</th><th>Fingerprint</th></tr></thead><tbody>'+R.bills.map(function(b,i){var c=R.checked?lab[R.checked[i]]:null;
+   return '<tr><td class="nw">'+b.no+'</td><td>'+(c?'<span class="chip '+c[0]+'">'+c[1]+'</span>':'<span class="tiny">Not checked yet</span>')+'</td><td>'+b.t+'</td><td>'+rupee(b.total)+'</td><td class="fp">'+b.hash+'</td></tr>';}).join('')+'</tbody></table></div></section>';
+}
+function vAudit(){
+ var ev=S.events.slice().reverse(),r=S.auditOk;
+ return '<section class="audit"><div class="audit-h"><div><h2>One log for both products</h2><p>The society and the restaurant write to one audit log, and each customer would see only its own rows. Every entry carries a fingerprint tied to the entry before it. In this prototype nothing can alter the log, so the check always passes; the working demo will let you change an entry and see it caught.</p></div>'+
+  '<div class="row"><button class="btn" data-action="audit-verify">Check the log</button>'+(r?'<span class="chip '+(r.ok?'ok':'stop')+'" role="status">'+(r.ok?'All '+r.n+' entries linked and unchanged':'The log was altered')+'</span>':'')+'</div></div>'+
+  '<div class="audit-scroll"><table class="tbl"><thead><tr><th>Time</th><th>Product</th><th>Who</th><th>What happened</th><th>Fingerprint</th></tr></thead><tbody>'+ev.map(function(e){
+   return '<tr><td>'+e.t+'</td><td><span class="chip '+(e.domain==='society'?'info':'warn')+'">'+(e.domain==='society'?'Society':'Restaurant')+'</span></td><td>'+esc(e.actor)+'</td><td>'+esc(e.text)+'</td><td class="fp">'+e.hash+'</td></tr>';}).join('')+'</tbody></table></div></section>';
+}
+
+var app=document.getElementById('app'),live1=document.getElementById('live'),lastView='',prevFlags={},lastSay='';
+var SCROLLERS='.body,.reg-scroll,.cols,.audit-scroll';
+function render(){
+ var a=document.activeElement,fid=a&&a.id,fkey=a&&a.dataset&&a.dataset.action?[a.dataset.action,a.dataset.arg||'']:null,pos=null,i;
+ try{pos=a&&a.selectionStart;}catch(e){}
+ var sc=[],els=app.querySelectorAll(SCROLLERS);for(i=0;i<els.length;i++)sc.push(els[i].scrollTop);
+ var body;
+ if(S.view==='society')body='<main><div class="stage soc">'+vResident()+vGuard()+vGate()+vDash()+'</div>'+vRegister()+'</main>';
+ else if(S.view==='restaurant')body='<main><div class="stage rst">'+vCustomer()+vPOS()+vKDS()+vOwner()+'</div>'+vChain()+'</main>';
+ else body='<main>'+vAudit()+'</main>';
+ app.innerHTML=vBar()+vGuide()+body+'<p class="foot">Everything on this page runs in your browser. Names, flats, bills and speeds are made up, the QR code is a sample, nothing is digitally signed or sent to a server, and no message, call or payment is really made.</p>';
+ if(lastView===S.view){els=app.querySelectorAll(SCROLLERS);if(els.length===sc.length)for(i=0;i<els.length;i++)els[i].scrollTop=sc[i];}
+ lastView=S.view;
+ var flags={call:ringing()?ringing().id:'',sosc:S.res.sosConfirm?1:'',cert:S.res.cert?1:'',alarm:(sosOpen()&&!S.sos.ack)?1:'',modal:S.rst.modal?S.rst.modal.kind:''};
+ var want={call:'[data-action="call-1"]',sosc:'[data-action="res-sos-cancel"]',cert:'[data-action="res-cert-close"]',alarm:'[data-action="guard-sos-ack"]',modal:'#f-pin'},n=null,k;
+ for(k in flags)if(flags[k]&&flags[k]!==prevFlags[k])n=app.querySelector(want[k])||n;
+ prevFlags=flags;
+ if(!n){if(fid)n=document.getElementById(fid);
+  else if(fkey){var c=app.querySelectorAll('[data-action="'+fkey[0]+'"]');for(i=0;i<c.length;i++)if((c[i].dataset.arg||'')===fkey[1]){n=c[i];break;}}}
+ if(n&&!n.disabled){n.focus({preventScroll:true});if(pos!=null&&n.id===fid&&n.setSelectionRange){try{n.setSelectionRange(pos,pos);}catch(e){}}}
+ if(S.hint){try{var h=app.querySelectorAll(S.hint.sel);for(i=0;i<h.length;i++)h[i].classList.add('hint');if(h[0]&&h[0].scrollIntoView)h[0].scrollIntoView({block:'nearest',behavior:'smooth'});}catch(e){}}
+ var say=(S.online?'':'Gate internet is off. ')+(S.gate.open?'Gate open. ':'Gate closed. ')+(flags.call?'Incoming call on the resident’s phone. ':'')+(flags.alarm?'SOS alarm on the guard’s tablet. ':'');
+ if(say!==lastSay&&live1){live1.textContent=say;lastSay=say;}
+ live();
+}
+function live(){
+ var c=clock(),now=Date.now(),i,els=app.querySelectorAll('[data-clock]');
+ for(i=0;i<els.length;i++)els[i].textContent=els[i].dataset.clock==='long'?c:c.slice(0,5);
+ els=app.querySelectorAll('[data-deadline]');
+ for(i=0;i<els.length;i++)els[i].textContent=Math.max(0,Math.ceil((+els[i].dataset.deadline-now)/1000));
+ els=app.querySelectorAll('[data-since]');
+ for(i=0;i<els.length;i++){var s=Math.floor((now-(+els[i].dataset.since))/1000);els[i].textContent=Math.floor(s/60)+':'+pad(s%60);}
+}
+function tick(){
+ var now=Date.now(),dirty=false;
+ if(S.gate.open&&now>S.gate.closeAt){closeGate();if(S.gate.plateOk)S.gate.plate='';dirty=true;}
+ S.reqs.forEach(function(r){
+  if(r.status!=='pending')return;
+  if(r.autoAt){if(now>r.autoAt){finishReq(r,true,'Resident allowed it in the app (simulated)');dirty=true;}}
+  else if(now>r.deadline){r.status='calling';
+   log('society','Platform','Nobody in flat '+r.flat+' answered in the app for '+r.who+'. A phone call was placed to the flat.',{tone:'warn',metric:'call out in '+speed(1.5,2.5)+' s'});mark('call_placed');dirty=true;}
+ });
+ var rg=ringing();
+ if(rg){if(!rg.callEnd){rg.callEnd=now+CALL_WAIT;dirty=true;}
+  else if(now>rg.callEnd){rg.status='noanswer';
+   log('society','Platform','The flat did not pick up the phone call about '+rg.who+' either (12 s here, 45 s in the real product). The guard’s tablet now offers the next step.',{tone:'warn'});mark('call_resolved');dirty=true;}}
+ if(sosOpen()&&!S.sos.ack&&!S.sos.escalated&&now>S.sos.escalateAt){S.sos.escalated=true;S.sos.steps.push(clock().slice(0,5)+' No guard accepted, supervisor phoned');
+  log('society','Platform','No guard accepted the SOS in time (15 s here, 60 s in the real product). The supervisor is being phoned.',{tone:'stop'});dirty=true;}
+ if(S.hint&&now>S.hint.until){S.hint=null;dirty=true;}
+ if(dirty)render();else live();
+}
+function boot(){EPOCH++;T0=Date.now();S=fresh();seed();}
+
+document.addEventListener('click',function(e){
+ var el=e.target.closest('[data-action]');if(!el||el.tagName==='SELECT'||el.tagName==='INPUT')return;
+ var fn=A[el.dataset.action];if(fn){fn(el.dataset.arg);render();}
+});
+document.addEventListener('input',function(e){var k=e.target.dataset&&e.target.dataset.bind;if(k)S.form[k]=e.target.value;});
+document.addEventListener('change',function(e){
+ var t=e.target;if(t.dataset&&t.dataset.bind)S.form[t.dataset.bind]=t.value;
+ if(t.tagName==='SELECT'&&t.dataset.action&&A[t.dataset.action]){A[t.dataset.action](t.value);render();}
+});
+document.addEventListener('keydown',function(e){
+ var id=e.target.id;
+ if(e.key==='Escape'){
+  if(S.rst.modal&&S.view==='restaurant'){A['pos-modal-cancel']();render();}
+  else if(S.res.sosConfirm){S.res.sosConfirm=false;render();}
+  else if(S.res.cert){S.res.cert=null;render();}
+  return;}
+ if(e.key!=='Enter')return;
+ if(id==='f-pin'){e.preventDefault();A['pos-modal-ok']();render();}
+ else if(id==='f-guest'&&!ringing()){A['res-create-pass']();render();}
+ else if(id==='f-visitor'){A['guard-ask']();render();}
+});
+boot();render();setInterval(tick,250);
+})();
+</script>
+</body>
+</html>
